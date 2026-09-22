@@ -435,7 +435,7 @@ P('N24','運命の一枚','none',1,'R',[ef('cast','randomCard',{})],{i:'star'}),
     total=Math.max(2,total);
     let r=d.attr.length?RATIO[d.attr[0]]:0.55; if(d.kw.includes('blocker')) r=0.4;
     let a=Math.max(1,Math.min(total-1,Math.round(total*r))); let h=total-a;
-    if(d.attr[0]==='grow'){ h+=1; a+=1; }
+    if(d.attr[0]==='grow' && d.cost>=5) h+=1;
     if(d.attr[0]==='ray'||d.attr[0]==='void') h+=1;
     d.power=a; d.hp=h;
   });
@@ -1800,7 +1800,7 @@ function renderTitle(){
    +'<button id="btnOnline">オンライン対戦（部屋コード）</button>'
    +(loadOnline()?'<button id="btnOnlineResume">オンライン対戦を再開（部屋 '+esc(loadOnline().code)+'）</button>':'')
    +'<button id="btnCodex">カードリスト（図鑑）</button>'
-   +'</div><div class="sub" style="margin-top:28px;font-size:11px">プロトタイプ v0.6 — CPU戦・'+AN.CARDS.length+'種プール</div></div>';
+   +'</div><div class="sub" style="margin-top:28px;font-size:11px">v2.0.2 — CPU戦・'+AN.CARDS.length+'種プール</div></div>';
   s.querySelector('#btnNew').onclick=()=>show('setup');
   s.querySelector('#btnCodex').onclick=()=>show('codex');
   s.querySelector('#btnOnline').onclick=()=>show('lobby');
@@ -1821,7 +1821,7 @@ function renderSetup(){
   const seg=(id,key)=>{ s.querySelectorAll('#'+id+' button').forEach(b=>{ b.classList.toggle('on', +b.dataset.v===setup[key]); b.onclick=()=>{ setup[key]=+b.dataset.v; renderSetup(); }; }); };
   seg('segF','format'); seg('segL','level');
   s.querySelector('#back').onclick=()=>show('title');
-  s.querySelector('#go').onclick=()=>{ setup.seed=s.querySelector('#seed').value.trim(); newSeries(); };
+  s.querySelector('#go').onclick=()=>{ setup.seed=s.querySelector('#seed').value.trim(); newSeries(); setup.seed=''; };
 }
 function newSeries(){
   const seed=setup.seed||('s'+Math.floor(Math.random()*1e9).toString(36));
@@ -1859,6 +1859,7 @@ function renderDraft(){
   const maxC=Math.max(1,...curve);
   s.innerHTML='<div class="topbar"><button class="ghost" id="back">←</button><div class="t">デッキ構築 <span class="sub">第'+series.gameNo+'ゲーム'+(series.online?' ・ 部屋 '+series.online.code:'')+(main?' ・ <span style="color:'+AN.ATTRS[main].c+'">'+AN.ATTRS[main].n+'（'+AN.ATTRS[main].k+'）</span>':'')+'</span></div><button class="ghost" id="auto">おまかせ</button></div>'
    +'<div class="mainpick"><span class="sub">メイン属性</span>'+AN.ATTR_ORDER.map(a=>{ const k=pool.filter(d=>!d.anomaly&&d.attr.includes(a)).length; return '<button data-a="'+a+'" class="'+(main===a?'on':'')+'" style="--ac:'+AN.ATTRS[a].c+'">'+AN.ATTRS[a].n+'<small>'+k+'枚</small></button>'; }).join('')+'</div>'
+   +'<div class="sub" style="padding:2px 12px 0;font-size:11px">今回配られた属性：'+AN.ATTR_ORDER.filter(a=>pool.some(d=>!d.anomaly&&d.attr.includes(a))).map(a=>'<span style="color:'+AN.ATTRS[a].c+'">'+AN.ATTRS[a].n+'</span>').join('・')+'</div>'
    +(main?'<div class="sub" style="padding:2px 12px 4px;font-size:11px">リーダー能力「'+esc(AN.LEADER[main].name)+'」：'+esc(AN.LEADER[main].text)+'</div>':'<div class="sub" style="padding:2px 12px 4px;font-size:11px">90枚を見て、メイン属性を選んでください（デッキ＝メイン属性＋無属性＋アノマリー）</div>')
    +'<div class="filters">'+filters.map(f=>'<button data-f="'+f[0]+'" class="'+(ui.filter===f[0]?'on':'')+'">'+f[1]+'</button>').join('')+'</div>'
    +'<div class="scroll"><div class="grid" id="grid"></div><div class="sub" style="padding:0 14px 14px;font-size:11px">カードをタップで詳細と枚数変更。右上は手持ち枚数、左下はデッキに入れた枚数。</div></div>'

@@ -121,6 +121,21 @@ input[type=text]{background:var(--panel);border:1px solid var(--line);color:var(
 .gloss{margin:10px auto 0;max-width:420px;font-size:12px;line-height:1.6;color:var(--muted);background:var(--panel);border-radius:10px;padding:8px 10px}
 .gloss div+div{margin-top:4px}
 .gloss b{color:var(--text)}
+.reveal{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 45%,rgba(139,92,255,.35),rgba(8,10,16,.88) 65%);animation:rvbg .35s ease-out}
+.reveal.legend{background:radial-gradient(circle at 50% 45%,rgba(255,196,80,.3),rgba(120,40,110,.55) 40%,rgba(8,10,16,.95) 70%)}
+.reveal.out{animation:rvout .3s forwards}
+.rv-inner{display:flex;flex-direction:column;align-items:center;gap:8px}
+.rv-kind{font-family:var(--disp);font-size:22px;letter-spacing:.12em;background:linear-gradient(120deg,var(--anom1),var(--anom2),var(--anom3));-webkit-background-clip:text;background-clip:text;color:transparent;animation:rvkind .6s ease-out}
+.reveal.legend .rv-kind{font-size:26px;background:linear-gradient(120deg,#FFD86B,#FF6BD6,#FFD86B);-webkit-background-clip:text;background-clip:text}
+.rv-who{font-size:12px;color:var(--muted)}
+.rv-card{animation:rvcard .7s cubic-bezier(.2,1.4,.4,1)}
+.reveal.legend .rv-card .card{box-shadow:0 0 40px rgba(255,216,107,.7),0 0 90px rgba(255,107,214,.4)}
+.rv-tap{font-size:11px;color:var(--muted);margin-top:4px}
+@keyframes rvbg{from{opacity:0}to{opacity:1}}
+@keyframes rvout{to{opacity:0}}
+@keyframes rvcard{0%{transform:scale(.3) rotateY(90deg);opacity:0}100%{transform:scale(1) rotateY(0);opacity:1}}
+@keyframes rvkind{0%{transform:translateY(-12px);opacity:0;letter-spacing:.5em}100%{transform:none;opacity:1}}
+@media (prefers-reduced-motion:reduce){.reveal,.rv-card,.rv-kind{animation:none}}
 .helpbtn{padding:4px 10px;font-family:var(--disp);font-size:13px;border-radius:8px}
 .overlay.center .sheet{max-height:94%}
 .sheet .btns{display:flex;gap:8px;margin-top:14px}
@@ -210,12 +225,12 @@ const ATTR_ORDER = ['flare','tide','grow','ray','void'];
 const ATTR_ALL = ['flare','tide','grow','ray','void','none'];
 const RARITY = { C:{n:'コモン',w:60}, U:{n:'アンコモン',w:28}, R:{n:'レア',w:10}, L:{n:'レジェンド',w:2}, A:{n:'アノマリー',w:0} };
 const KW = {
-  haste:'速攻', blocker:'守護', unblockable:'不可視', breakthrough:'突破', armor:'装甲', drain:'吸収', double:'二段攻撃', deathtouch:'猛毒'
+  haste:'速攻', blocker:'守護', unblockable:'不可視', breakthrough:'突破', armor:'装甲', drain:'吸収', double:'二段攻撃', deathtouch:'猛毒', noattack:'攻撃不能'
 };
 const KW_HELP = {
   haste:'出したターンに攻撃できる', blocker:'このクリーチャーがスタンドしている間、相手はこのクリーチャー以外を攻撃できない（ハースストーンの挑発）',
   unblockable:'守護を無視して攻撃できる', breakthrough:'クリーチャーを攻撃したとき、相手の残り体力を超えた分のダメージが相手プレイヤーのライフに通る（装甲には止められる）',
-  armor:'1回だけダメージまたは破壊を無効にする', drain:'相手のライフを減らした分、自分のライフを回復する', double:'1ターンに2回攻撃できる', deathtouch:'このクリーチャーから1以上のダメージを受けたクリーチャーは破壊される（装甲で防げる）'
+  armor:'1回だけダメージまたは破壊を無効にする', drain:'相手のライフを減らした分、自分のライフを回復する', double:'1ターンに2回攻撃できる', deathtouch:'このクリーチャーから1以上のダメージを受けたクリーチャーは破壊される（装甲で防げる）', noattack:'このクリーチャーは攻撃できない（守護にはなれる）'
 };
 const BASE_POWER = {1:2,2:3,3:4,4:5,5:6,6:7,7:8,8:9};
 
@@ -485,7 +500,7 @@ function condText(o){
 }
 function attrName(a){ return a? AN.ATTRS[a].n : ''; }
 function reqText(r){ if(!r) return ''; if(r.combo) return '連撃'+(r.combo>1?r.combo:''); if(r.awaken) return '繁茂'; if(r.pray) return '祈り'+r.pray; if(r.souls) return '供物'+r.souls; if(r.boost) return '詠唱'+r.boost; return ''; }
-const SCALE_N={combo:'このターンにプレイした他のカード', boost:'詠唱', pray:'祈り', souls:'供物', spells:'このゲームで唱えたスペル', allies:'自分の他のクリーチャー'};
+const SCALE_N={fallen:'このゲームで破壊された自分のクリーチャー', combo:'このターンにプレイした他のカード', boost:'詠唱', pray:'祈り', souls:'供物', spells:'このゲームで唱えたスペル', allies:'自分の他のクリーチャー'};
 function effectText(x){
   if(x.req||x.bonus||x.scale){
     const y=Object.assign({},x); delete y.req; delete y.bonus; delete y.scale;
@@ -559,6 +574,12 @@ function effectTextBase(x){
     case 'ping': return '相手のライフ、または相手のクリーチャー1体に'+n+'ダメージ。';
     case 'weaken': return '相手のクリーチャー1体に-'+n+'/-'+n+'（永続）。';
     case 'weakenAll': return '相手のクリーチャーすべてに-'+n+'/-'+n+'（永続）。';
+    case 'addDream': return '自分の手札に、ランダムな「夢カード」（夢の刃・夢の目覚め・夢の翼・夢の癒し・夢の高揚のいずれか）を1枚加える。';
+    case 'becomeLord': { const L=LEADER_EX[x.leader]; return '自分のライフを'+n+'にする。自分のリーダー能力を「'+L.name+'」（'+L.cost+'エナジー：'+L.text+'）に変える（このゲーム中ずっと）。'; }
+    case 'boomDmg': return '相手のクリーチャーか相手プレイヤーからランダムに1つを選び、1〜4のランダムなダメージ。';
+    case 'wipeOthers': return 'このクリーチャー以外の、お互いのクリーチャーすべてを破壊する。';
+    case 'discardSelfAll': return '自分の手札をすべて捨てる。';
+    case 'bigRandom': return '相手のクリーチャーか相手プレイヤーからランダムに1つを選び、'+n+'ダメージ。';
     case 'setLeader': { const L=LEADER_EX[x.leader]; return '自分のリーダー能力を「'+L.name+'」（'+L.cost+'エナジー：'+L.text+'）に変える（このゲーム中ずっと）。'; }
     case 'swapLeader': return '自分と相手のリーダー能力を入れ替える（このゲーム中ずっと）。';
     case 'randomDmgCr': return 'ランダムな相手のクリーチャー1体に'+n+'ダメージ。';
@@ -600,7 +621,7 @@ function effectTextBase(x){
     case 'doubleSelf': return 'このクリーチャーの攻撃力と体力を2倍にする。';
     case 'swapStatsAll': return 'すべてのクリーチャーの攻撃力と体力を入れ替える。';
     case 'discountHand': return '自分の手札にあるカードすべてのコストを'+n+'下げる（0未満にはならない。あとから手札に来たカードは対象外）。';
-    case 'tokens': { const t=TOKENS[x.tok||'none']; return '自分の場に「'+t.name+'」（1/1'+(t.kw.length?'・'+t.kw.map(k=>KW[k]).join('・'):'')+(t.effects.length?'・自分のターン開始時に+1/+1':'')+'）を'+n+'体出す。'; }
+    case 'tokens': { const t=TOKENS[x.tok||'none']; return (x.opp?'相手の場に':'自分の場に')+'「'+t.name+'」（'+t.power+'/'+t.hp+(t.kw.length?'・'+t.kw.map(k=>KW[k]).join('・'):'')+(t.effects.length?'・'+t.effects.map(e=>(TRIG[e.t]||'')+effectTextBase(Object.assign({},e,{n:e.n}))).join('').replace(/。$/,''):'')+'）を'+n+'体出す。'; }
     case 'discover': return '自分のメイン属性か無属性のカードからランダムに3枚を見て、1枚を選んで自分の手札に加える。';
     case 'scry': return '自分の山札の上から'+n+'枚を見て、1枚を自分の手札に加え、残りを自分の山札の下に置く。';
     case 'randomDmg': return '相手のクリーチャーか相手プレイヤーからランダムに選んで1ダメージ、を'+n+'回行う。';
@@ -704,8 +725,28 @@ function anomalyName(rng, attrs, type){
   if(type==='spell') name = name.replace(/[＝・]/,'')+rng.pick(['の呪','の裁き','の嵐','の門','の刻','の眼']);
   return name;
 }
+// ---- 伝説枠のアノマリー（v2.7）：ハースストーンの名物レジェンドのような「型」から生成 ----
+const LEGEND_TYPES = [
+  { key:'chaos', title:'混沌の神', icon:'vortex', make:(rng,d)=>{ d.type='creature'; d.cost=8+rng.int(2); d.power=6; d.hp=6; d.effects=[ef('etb','castRandom',{n:0,scale:'spells',k:1,max:12})]; } },
+  { key:'dream', title:'夢見る竜', icon:'dragon', make:(rng,d)=>{ d.type='creature'; d.cost=8+rng.int(2); d.power=4; d.hp=10; d.effects=[ef('endturn','addDream',{})]; } },
+  { key:'lord',  title:'魔王', icon:'darkcrown', make:(rng,d)=>{ d.type='spell'; d.cost=8+rng.int(2); d.effects=[ef('cast','becomeLord',{n:15,leader:'fiend'})]; } },
+  { key:'boom',  title:'爆弾博士', icon:'explosion', make:(rng,d)=>{ d.type='creature'; d.cost=7; d.power=6; d.hp=6; d.effects=[ef('etb','tokens',{n:2,tok:'bot'})]; } },
+  { key:'charge',title:'突撃隊長', icon:'runner', make:(rng,d)=>{ d.type='creature'; d.cost=4+rng.int(2); d.power=6+rng.int(3); d.hp=2; d.kw=['haste']; d.effects=[ef('etb','tokens',{n:2,tok:'whelp',opp:true})]; } },
+  { key:'end',   title:'終焉の竜', icon:'dragon', make:(rng,d)=>{ d.type='creature'; d.cost=10; d.power=12; d.hp=12; d.effects=[ef('etb','wipeOthers',{}),ef('etb','discardSelfAll',{})]; } },
+  { key:'flame', title:'炎の王', icon:'crown', make:(rng,d)=>{ d.type='creature'; d.cost=8; d.power=8; d.hp=8; d.kw=['noattack']; d.effects=[ef('endturn','bigRandom',{n:8})]; } },
+  { key:'soul',  title:'英霊の王', icon:'phoenix', make:(rng,d)=>{ const sc=rng.pick(['fallen','spells','pray']); d.type='creature'; d.cost=6+rng.int(2); d.power=3; d.hp=3; d.effects=[ef('etb','pumpSelf',{n:0,scale:sc,k:1,max:15})]; } },
+];
+function makeLegend(rng, idx){
+  const T=rng.pick(LEGEND_TYPES);
+  const attrs=[rng.pick(ATTR_ORDER)];
+  const nm=anomalyName(rng,attrs,'creature').replace(/[＝・]/g,'');
+  const d={ id:'anom'+idx+'_'+Math.floor(rng()*1e9), name:T.title+nm, attr:attrs, type:'creature', cost:0, rarity:'A', anomaly:true, legend:true, legendType:T.key, kw:[], effects:[], power:0, hp:0, icon:T.icon };
+  T.make(rng,d);
+  return d;
+}
 function makeAnomaly(rng, idx, main){
   if(idx%3===2) return makeWeird(rng, idx);
+  if(idx%3===0 && rng()<0.5) return makeLegend(rng, idx);
   const attrs = main ? (rng()<0.8 ? [main] : [main, rng.pick(ATTR_ORDER.filter(a=>a!==main))]) : (rng()<0.8 ? [rng.pick(ATTR_ORDER)] : (()=>{ const s=rng.shuffle(ATTR_ORDER); return [s[0],s[1]]; })());
   const type = rng()<0.7 ? 'creature' : 'spell';
   const wild = type==='creature' ? ANOM_WILD_CREATURE : ANOM_WILD_SPELL;
@@ -739,6 +780,10 @@ const LEADER = {
   void: { name:'屍術', cost:2, text:'パワー1の「骸」トークンを1体出す。', ef:ef('leader','token',{}) },
 };
 const TOKENS = {
+  dream: { id:'tok_dream', name:'夢の竜', attr:['grow'], type:'creature', cost:5, power:5, hp:5, rarity:'C', kw:[], effects:[], token:true, i:'dragon' },
+  bot:   { id:'tok_bot', name:'爆弾ロボ', attr:[], type:'creature', cost:1, power:1, hp:1, rarity:'C', kw:[], effects:[{t:'death',e:'boomDmg'}], token:true, i:'barrel' },
+  fiend: { id:'tok_fiend', name:'業魔', attr:['void'], type:'creature', cost:3, power:5, hp:5, rarity:'C', kw:[], effects:[], token:true, i:'imp' },
+  whelp: { id:'tok_whelp', name:'子竜', attr:[], type:'creature', cost:1, power:1, hp:1, rarity:'C', kw:[], effects:[], token:true, i:'dragon' },
   flare:{ id:'tok_flare', name:'火花', attr:['flare'], type:'creature', cost:1, power:1, hp:1, rarity:'C', kw:['haste'], effects:[], token:true },
   tide: { id:'tok_tide', name:'泡', attr:['tide'], type:'creature', cost:1, power:1, hp:1, rarity:'C', kw:[], effects:[], token:true },
   grow: { id:'tok_grow', name:'苗木', attr:['grow'], type:'creature', cost:1, power:1, hp:1, rarity:'C', kw:[], effects:[ef('turnstart','pumpSelf',{n:1})], token:true },
@@ -749,6 +794,11 @@ const TOKENS = {
 
 // ---- 特殊カード（プールにはない。効果で手札や山札に加わる）----
 const SPECIAL = {
+  dream_blade: { id:'sp_dream_blade', name:'夢の刃', attr:[], type:'spell', cost:1, power:0, hp:0, rarity:'C', kw:[], effects:[{t:'cast',e:'dmg',n:5}], special:true, i:'sword' },
+  dream_wake:  { id:'sp_dream_wake', name:'夢の目覚め', attr:[], type:'spell', cost:0, power:0, hp:0, rarity:'C', kw:[], effects:[{t:'cast',e:'draw',n:2}], special:true, i:'eye' },
+  dream_wing:  { id:'sp_dream_wing', name:'夢の翼', attr:[], type:'spell', cost:3, power:0, hp:0, rarity:'C', kw:[], effects:[{t:'cast',e:'tokens',n:1,tok:'dream'}], special:true, i:'wings' },
+  dream_heal:  { id:'sp_dream_heal', name:'夢の癒し', attr:[], type:'spell', cost:1, power:0, hp:0, rarity:'C', kw:[], effects:[{t:'cast',e:'heal',n:6}], special:true, i:'heart' },
+  dream_rise:  { id:'sp_dream_rise', name:'夢の高揚', attr:[], type:'spell', cost:3, power:0, hp:0, rarity:'C', kw:[], effects:[{t:'cast',e:'pumpAll',n:2}], special:true, i:'arrowup' },
   ember: { id:'sp_ember', name:'火種', attr:['flare'], type:'spell', cost:1, power:0, hp:0, rarity:'C', kw:[], effects:[ef('cast','dmg',{n:2})], special:true },
   drop:  { id:'sp_drop', name:'水滴', attr:['tide'], type:'spell', cost:0, power:0, hp:0, rarity:'C', kw:[], effects:[ef('cast','draw',{n:1})], special:true },
   seed:  { id:'sp_seed', name:'種', attr:['grow'], type:'spell', cost:1, power:0, hp:0, rarity:'C', kw:[], effects:[ef('cast','tokens',{n:1,tok:'grow'})], special:true },
@@ -796,6 +846,7 @@ const LEADER_EX = {
   chaos:   { name:'混沌', cost:2, text:'全カードの中からランダムなスペルを1つ、自分が唱えたものとして使う（対象もランダム）。', ef:ef('leader','castRandom',{n:1}) },
   meteor:  { name:'星降らし', cost:3, text:'相手のクリーチャーか相手プレイヤーからランダムに選んで1ダメージ、を3回行う。', ef:ef('leader','randomDmg',{n:3}) },
   oracle:  { name:'託宣', cost:2, text:'自分の山札の上から2枚を見て、1枚を手札に加え、残りを山札の下に置く。', ef:ef('leader','scry',{n:2}) },
+  fiend:   { name:'業魔召喚', cost:3, text:'自分の場に「業魔」（5/5）を1体出す。', ef:ef('leader','tokens',{n:1,tok:'fiend'}) },
   summon:  { name:'召集', cost:2, text:'自分の場に「兵士」（1/1）を1体出す。', ef:ef('leader','tokens',{n:1,tok:'none'}) },
 };
 const FROG = { id:'tok_frog', name:'カエル', attr:['grow'], type:'creature', cost:1, power:1, hp:1, rarity:'C', kw:[], effects:[], token:true };
@@ -809,7 +860,7 @@ function cardValue(d){
   return v;
 }
 
-Object.assign(AN, { LEADER_EX, FROG, SKULL, TOKENS, SPECIAL, makeWeird, reqText, LEADER, ATTR_ALL, makeRng, hashStr, ATTRS, ATTR_ORDER, RARITY, KW, KW_HELP, BASE_POWER, CARDS, CARD_BY_ID, cardText, effectText, drawPool, makeAnomaly, cardValue });
+Object.assign(AN, { LEGEND_TYPES, makeLegend, LEADER_EX, FROG, SKULL, TOKENS, SPECIAL, makeWeird, reqText, LEADER, ATTR_ALL, makeRng, hashStr, ATTRS, ATTR_ORDER, RARITY, KW, KW_HELP, BASE_POWER, CARDS, CARD_BY_ID, cardText, effectText, drawPool, makeAnomaly, cardValue });
 if(typeof module!=='undefined') module.exports = AN;
 })();
 
@@ -1054,6 +1105,7 @@ class Game {
       case 'pray': return p.pray;
       case 'souls': return p.souls;
       case 'spells': return p.spellsCast;
+      case 'fallen': return p.fallen||0;
       case 'allies': return p.field.filter(c=>!t||c.c!==t.src).length;
     }
     return 0;
@@ -1122,16 +1174,16 @@ class Game {
     const snap={combo:p.plays}; p.plays++;
     if(d.type==='creature'){
       const cr=this.mkCr(card);
-      p.field.push(cr); this.say(p.name+'は「'+d.name+'」を召喚（エナジー'+paid+'）','play'); this.ev('play',{p:p.i,uid:card.uid});
+      p.field.push(cr); this.say(p.name+'は「'+d.name+'」を召喚（エナジー'+paid+'）','play'); this.ev('play',{p:p.i,uid:card.uid,d:card.d});
       d.effects.forEach(x=>{ if(x.t==='etb') this.queue.push({type:'effect',p:p.i,src:card,eff:x,snap}); });
       this.trigger(p,'summon',card);
     } else if(d.type==='spell'){
-      this.say(p.name+'は「'+d.name+'」を唱えた（エナジー'+paid+'）','play'); this.ev('play',{p:p.i,uid:card.uid});
+      this.say(p.name+'は「'+d.name+'」を唱えた（エナジー'+paid+'）','play'); this.ev('play',{p:p.i,uid:card.uid,d:card.d});
       d.effects.forEach(x=>{ if(x.t==='cast') this.queue.push({type:'effect',p:p.i,src:card,eff:x,snap}); });
       this.queue.push({type:'toGrave',p:p.i,card});
       p.spellsCast++; this.boostHand(p,1); this.trigger(p,'spell',null);
     } else if(d.type==='equip'){
-      this.say(p.name+'は「'+d.name+'」を装備（エナジー'+paid+'）','play'); this.ev('play',{p:p.i,uid:card.uid});
+      this.say(p.name+'は「'+d.name+'」を装備（エナジー'+paid+'）','play'); this.ev('play',{p:p.i,uid:card.uid,d:card.d});
       this.queue.push({type:'equip',p:p.i,card});
     }
     this.trigger(p,'play',card);
@@ -1164,6 +1216,7 @@ class Game {
   canAttackWith(p, cr){
     if(this.winner!=null||this.pending||this.players[this.active]!==p) return false;
     if(!p.field.includes(cr)||cr.tapped) return false;
+    if(this.hasKw(cr,'noattack')) return false;
     if(cr.attacked && !(this.hasKw(cr,'double') && !cr.doubled)) return false;
     if(cr.sick && !this.hasKw(cr,'haste')) return false;
     return true;
@@ -1233,6 +1286,7 @@ class Game {
   }
   kill(cr){
     const p=this.owner(cr); if(!p) return;
+    p.fallen=(p.fallen||0)+1;
     p.field.splice(p.field.indexOf(cr),1);
     cr.equips.forEach(e=>p.grave.push(e)); if(!cr.c.d.token) p.grave.push(cr.c);
     p.souls++;
@@ -1336,7 +1390,7 @@ class Game {
       case 'resetAll': { [p,o].forEach(q=>q.field.slice().forEach(c=>this.bounce(c))); break; }
       case 'graveSteal': { const cs=o.grave.filter(c=>c.d.type==='creature'&&!c.d.token).sort((a,b)=>b.d.cost-a.d.cost); if(cs.length && p.field.length<FIELD_MAX){ const c=cs[0]; o.grave.splice(o.grave.indexOf(c),1); p.field.push(this.mkCr(c)); this.say(p.name+'は相手の墓地から「'+c.d.name+'」を奪った','play'); } break; }
       case 'silenceAll': { o.field.forEach(c=>{ c.silenced=true; c.grants=[]; }); this.say(o.name+'のクリーチャーは能力を失った','play'); break; }
-      case 'tokens': { const tok=AN.TOKENS[x.tok||'none']; let k=0; for(let i=0;i<n;i++){ if(p.field.length>=FIELD_MAX) break; p.field.push(this.mkCr(this.inst(tok))); k++; } this.say(p.name+'は「'+tok.name+'」を'+k+'体出した','play'); break; }
+      case 'tokens': { const tok=AN.TOKENS[x.tok||'none']; const q=x.opp?o:p; let k=0; for(let i=0;i<n;i++){ if(q.field.length>=FIELD_MAX) break; q.field.push(this.mkCr(this.inst(tok))); k++; } this.say(q.name+'の場に「'+tok.name+'」が'+k+'体出た','play'); break; }
       case 'discover': { const o2=t.opts[t.choice]; if(o2){ p.hand.push(this.inst(o2.d)); this.say(p.name+'は「'+o2.d.name+'」を発見した','draw'); } break; }
       case 'scry': { const o2=t.opts[t.choice]; if(o2){ const i=p.deck.indexOf(o2.card); if(i>=0) p.deck.splice(i,1); p.hand.push(o2.card); t.opts.forEach(z=>{ if(z!==o2){ const j=p.deck.indexOf(z.card); if(j>=0){ p.deck.splice(j,1); p.deck.unshift(z.card); } } }); this.say(p.name+'は山札から「'+o2.d.name+'」を手札に加え、残りを下に置いた','draw'); } break; }
       case 'randomDmg': { for(let i=0;i<n;i++){ const tg=['player'].concat(o.field.filter(c=>this.health(c)>0)); const pick=tg[this.rng.int(tg.length)]; if(pick==='player') this.loseLife(o,1,t.src.d.name); else this.dealDamage(pick,1); if(this.winner!=null) break; } break; }
@@ -1346,6 +1400,12 @@ class Game {
       case 'morph': { const c=this.findCr(t.choice); if(c){ const cs=AN.CARDS.filter(d=>d.type==='creature'&&d.cost===c.c.d.cost&&d.id!==c.c.d.id); if(cs.length){ const d=cs[this.rng.int(cs.length)]; const i=o.field.indexOf(c); const nc=this.mkCr(this.inst(d)); nc.sick=c.sick; nc.tapped=c.tapped; o.field[i]=nc; this.say('「'+c.c.d.name+'」は「'+d.name+'」に変身した','play'); } } break; }
       case 'weaken': { const c=this.findCr(t.choice); if(c){ c.pump-=n; this.say('「'+c.c.d.name+'」に-'+n+'/-'+n,'battle'); this.checkDeaths(); } break; }
       case 'weakenAll': { o.field.forEach(c=>c.pump-=n); this.say(o.name+'のクリーチャーすべてに-'+n+'/-'+n,'battle'); this.checkDeaths(); break; }
+      case 'addDream': { if(p.hand.length<HAND_MAX){ const keys=['dream_blade','dream_wake','dream_wing','dream_heal','dream_rise']; const sp=AN.SPECIAL[keys[this.rng.int(keys.length)]]; p.hand.push(this.inst(sp)); this.say(p.name+'の手札に夢カード「'+sp.name+'」が加わった','draw'); } break; }
+      case 'becomeLord': { p.life=n; p.leaderOverride=AN.LEADER_EX[x.leader]; p.abilityUsed=false; this.say(p.name+'は魔王となった！ライフ'+n+'・リーダー能力「'+p.leaderOverride.name+'」','play'); this.checkWin(); break; }
+      case 'boomDmg': { const tg=['player'].concat(o.field.filter(c=>this.health(c)>0)); const pick=tg[this.rng.int(tg.length)]; const d=1+this.rng.int(4); if(pick==='player') this.loseLife(o,d,t.src.d.name); else this.dealDamage(pick,d); break; }
+      case 'wipeOthers': { const me=this.findCr(t.src.uid); [p,o].forEach(q=>q.field.slice().forEach(c=>{ if(c!==me) this.destroy(c); })); this.say('場が焼き払われた','destroy'); break; }
+      case 'discardSelfAll': { const k=p.hand.length; p.hand.forEach(c=>{ p.grave.push(c); p.souls++; }); p.hand=[]; this.say(p.name+'は手札'+k+'枚を捨てた','discard'); break; }
+      case 'bigRandom': { const tg=['player'].concat(o.field.filter(c=>this.health(c)>0)); const pick=tg[this.rng.int(tg.length)]; if(pick==='player') this.loseLife(o,n,t.src.d.name); else this.dealDamage(pick,n); break; }
       case 'setLeader': { p.leaderOverride=AN.LEADER_EX[x.leader]; p.abilityUsed=false; this.say(p.name+'のリーダー能力が「'+p.leaderOverride.name+'」になった','play'); break; }
       case 'swapLeader': { const a=this.leaderDef(p), b=this.leaderDef(o); p.leaderOverride=b; o.leaderOverride=a; this.say('リーダー能力が入れ替わった！（'+p.name+'：'+(b?b.name:'なし')+'／'+o.name+'：'+(a?a.name:'なし')+'）','play'); break; }
       case 'randomDmgCr': { const cs=o.field.filter(c=>this.health(c)>0); if(cs.length) this.dealDamage(cs[this.rng.int(cs.length)], n); break; }
@@ -1622,6 +1682,7 @@ function step(g, level){
             if(x.e==='silenceAll'){ const k=oField.filter(c=>c.c.d.kw.length||c.c.d.effects.length).length; s = k>=1 ? 2+k*2 : -5; }
             if(x.e==='weaken'){ const nn=x.n+(x.bonus&&g.reqOk(p,x.bonus.req,{},false)?x.bonus.n:0); const k=oField.filter(c=>g.health(c)<=nn); s = k.length? 3+Math.max(...k.map(c=>creatureThreat(g,c))) : (oField.length?1:-5); }
             if(x.e==='weakenAll'){ const nn=x.n+(x.bonus&&g.reqOk(p,x.bonus.req,{},false)?x.bonus.n:0); const k=oField.filter(c=>g.health(c)<=nn).length; s = k>=2? 4+k*2 : (k===1?2:-4); }
+            if(x.e==='becomeLord'){ s = p.life<=15 ? 10 : -4; }
             if(x.e==='setLeader'){ s = p.leaderOverride ? 1 : 4; }
             if(x.e==='swapLeader'){ s = -2; }
             if(x.e==='randomDmgCr'){ s = oField.length? 2+oField.filter(c=>g.health(c)<=x.n).length*2 : -3; }
@@ -1662,6 +1723,13 @@ function step(g, level){
             if(x.e==='discountHand'){ s = p.hand.length>=3 ? 3+p.hand.length*0.5 : -2; }
             if(x.e==='revive'){ s = g.candidates(p,x).length? 3+Math.max(...g.candidates(p,x).map(u=>p.grave.find(c=>c.uid===u).d.cost)) : -5; }
           });
+        } else if(d.legend){
+          const tp=o.field.reduce((a,c)=>a+g.power(c),0), mp=p.field.reduce((a,c)=>a+g.power(c),0);
+          if(d.legendType==='end') s = (tp>mp+4) ? 12 : -10;
+          else if(d.legendType==='lord') s = (p.life<=15) ? 10 : (p.life<=20 ? 3 : -4);
+          else if(d.legendType==='chaos') s = 3+Math.min(10,p.spellsCast);
+          else if(d.legendType==='soul'){ const x=d.effects[0]; s = 2+Math.min(12, g.scaleCount(p,x,{src:c})); }
+          else s = 9;
         } else if(d.type==='creature' && d.weird){
           d.effects.forEach(x=>{ if(['doubleEnemy','giftAnomaly'].includes(x.e)) s-=6; if(x.e==='setLifeBoth' && !(p.life<13&&o.life>13)) s-=8; if(x.e==='swapEnergy' && o.energyMax<=p.energyMax) s-=4; if(x.e==='swapGraveDeck' && p.deck.length>6) s-=5; if(x.e==='shrinkAll'){ const tp=o.field.reduce((a,c)=>a+g.power(c),0), mp=p.field.reduce((a,c)=>a+g.power(c),0); if(tp<=mp) s-=5; } });
         } else if(d.type==='equip'){
@@ -1826,7 +1894,7 @@ function cardEl(d, o){
   const attrN=d.attr.length? d.attr.map(a=>AN.ATTRS[a].n+'('+AN.ATTRS[a].k+')').join('/') : '無属性';
   let h='<div class="art">'+AN.iconSvg(d)+'</div><div class="cost">'+(o.cost!=null?o.cost:d.cost)+'</div><div class="rar">'+(d.anomaly?'?':d.rarity)+'</div><div class="name">'+esc(d.name)+'</div>';
   if(o.big){
-    h+='<div class="type">'+typeN+' / '+attrN+(d.anomaly?(d.weird?' / アノマリー（奇妙）':' / アノマリー'):' / '+AN.RARITY[d.rarity].n)+'</div>';
+    h+='<div class="type">'+typeN+' / '+attrN+(d.anomaly?(d.weird?' / アノマリー（奇妙）':(d.legend?' / アノマリー（伝説）':' / アノマリー')):' / '+AN.RARITY[d.rarity].n)+'</div>';
     const lines=AN.cardText(d);
     h+='<div class="text">'+(lines.length?lines.map(esc).join('<br>'):'<span style="color:var(--muted)">（効果なし）</span>')+'</div>';
     if(d.type==='creature') h+=statHtml(d,o);
@@ -1863,6 +1931,7 @@ const GLOSS_MECH = {
   token:['トークン','効果で出る1/1などのクリーチャー。手札や山札に戻ると消え、墓地にも残らない。'],
   perm:['永続／ターン終了時まで','「永続」の強化は場にいる間ずっと残る。「ターン終了時まで」はそのターンの終わりに消える。'],
   dmg:['ダメージと体力','ダメージは蓄積し、体力0で破壊。戦闘では互いに攻撃力分のダメージを与え合う。'],
+  noattack:['攻撃不能','このクリーチャーは攻撃できない（守護にはなれる）。'],
   entry:['効果で場に出たクリーチャー','コピー・進化・蘇生・山札から直接など、手札以外から場に出たクリーチャーも登場時効果が発動する。ただし、その登場時効果のうち「クリーチャーを場に出す効果」（コピー・蘇生・進化など）は無限連鎖を防ぐため発動しない。相手のクリーチャーを変身させる効果（カエル化など）では発動しない。'],
   leader:['リーダー能力','毎ターン1回、エナジーを払って使える固有能力。一部のカードで書き換えられる。'],
 };
@@ -1925,7 +1994,7 @@ function renderTitle(){
    +'<button id="btnOnline">オンライン対戦（部屋コード）</button>'
    +(loadOnline()?'<button id="btnOnlineResume">オンライン対戦を再開（部屋 '+esc(loadOnline().code)+'）</button>':'')
    +'<button id="btnCodex">カードリスト（図鑑）</button>'
-   +'</div><div class="sub" style="margin-top:28px;font-size:11px">v2.6 — CPU戦・'+AN.CARDS.length+'種プール</div></div>';
+   +'</div><div class="sub" style="margin-top:28px;font-size:11px">v2.7 — CPU戦・'+AN.CARDS.length+'種プール</div></div>';
   s.querySelector('#btnNew').onclick=()=>show('setup');
   s.querySelector('#btnCodex').onclick=()=>show('codex');
   s.querySelector('#btnOnline').onclick=()=>show('lobby');
@@ -2036,6 +2105,20 @@ function scheduleCpu(){
   cpuTimer=setTimeout(()=>{ if(!game||ui.screen!=='battle') return; const a=AN.AI.step(game, series.level); renderBattle(); if(a) scheduleCpu(); else scheduleCpu(); },  620);
 }
 function mechTxt(p){ switch(p.main){ case 'flare': return '連撃'+p.plays; case 'tide': return 'スペル'+p.spellsCast; case 'grow': return p.energyMax>=7?'繁茂中':'繁茂まで'+(7-p.energyMax); case 'ray': return '祈り'+p.pray; case 'void': return '供物'+p.souls; } return ''; }
+// ---------- アノマリー公開演出 ----------
+const revealQ=[]; let revealing=false;
+function queueReveal(d, who){ revealQ.push({d,who}); if(!revealing) nextReveal(); }
+function nextReveal(){
+  const r=revealQ.shift(); if(!r){ revealing=false; return; }
+  revealing=true;
+  const el=document.createElement('div'); el.className='reveal'+(r.d.legend?' legend':'');
+  const kind = r.d.legend ? '伝説のアノマリー' : (r.d.weird ? '奇妙なアノマリー' : 'アノマリー');
+  el.innerHTML='<div class="rv-inner"><div class="rv-kind">'+kind+'</div><div class="rv-who">'+esc(r.who)+'が解き放った</div><div class="rv-card"></div><div class="rv-tap">タップで閉じる</div></div>';
+  el.querySelector('.rv-card').appendChild(cardEl(r.d,{big:true}));
+  document.body.appendChild(el);
+  let done=false; const close=()=>{ if(done) return; done=true; el.classList.add('out'); setTimeout(()=>{ el.remove(); nextReveal(); }, 300); };
+  el.onclick=close; setTimeout(close, r.d.legend?4200:2800);
+}
 function afterAction(){ renderBattle(); scheduleCpu(); }
 function applyAction(g, a, p){
   const pl=g.players[p]; if(!pl) return;
@@ -2140,6 +2223,7 @@ function renderBattle(){
   const lifeOp=s.querySelector('#life'+op.i); lifeOp.onclick=()=>{ if(atkMode&&targets.includes('player')){ ui.attackFrom=null; doAct({t:'attack',uid:atkCr.c.uid,target:'player'}); } };
   // events → flashes
   const evs=game.events.slice(evSeen); evSeen=game.events.length;
+  evs.forEach(e=>{ if(e.type==='play' && e.d && e.d.anomaly) queueReveal(e.d, game.players[e.p].name); });
   evs.forEach(e=>{ if(e.type==='life'&&e.n<0){ const l=s.querySelector('#life'+e.p); if(l){ l.classList.add('hit'); } } });
   // pending for human
   if(humanPend) renderPending(pend);

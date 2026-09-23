@@ -76,14 +76,14 @@ input[type=text]{background:var(--panel);border:1px solid var(--line);color:var(
 .card .eq{position:absolute;right:3px;top:22px;font-size:9px;background:rgba(0,0,0,.55);padding:1px 4px;border-radius:4px}
 .card.frozen::after{content:"凍";position:absolute;left:0;right:0;top:0;bottom:0;display:flex;align-items:center;justify-content:center;font-size:30px;color:#bfe9ff;opacity:.7;pointer-events:none}
 /* big card */
-.bigcard{width:230px;height:350px;border-radius:14px;border-width:3px;margin:0 auto}
+.bigcard{width:240px;height:370px;border-radius:14px;border-width:3px;margin:0 auto}
 .bigcard .cost{width:38px;height:38px;font-size:20px;left:8px;top:8px}
 .bigcard .rar{top:12px;right:10px;font-size:12px}
 .bigcard .name{top:54px;left:10px;right:10px;font-size:16px}
-.bigcard .art{top:96px;height:100px}
-.bigcard .art svg{width:88px;height:88px}
+.bigcard .art{top:92px;height:70px}
+.bigcard .art svg{width:64px;height:64px}
 .bigcard .type{top:80px;bottom:auto;left:10px;font-size:11px}
-.bigcard .text{position:absolute;left:10px;right:10px;top:200px;bottom:44px;font-size:12.5px;line-height:1.5;background:rgba(0,0,0,.35);border-radius:8px;padding:8px;overflow-y:auto}
+.bigcard .text{position:absolute;left:10px;right:10px;top:168px;bottom:44px;font-size:12.5px;line-height:1.5;background:rgba(0,0,0,.35);border-radius:8px;padding:8px;overflow-y:auto}
 .bigcard .power{font-size:28px;right:12px;bottom:6px}
 .bigcard .flav{position:absolute;left:12px;bottom:12px;font-size:10px;color:var(--muted)}
 
@@ -118,6 +118,11 @@ input[type=text]{background:var(--panel);border:1px solid var(--line);color:var(
 .sheet{background:var(--bg2);border-radius:18px 18px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom,0px));width:100%;max-width:560px;max-height:92%;overflow-y:auto}
 .overlay.center .sheet{border-radius:18px}
 .sheet h3{margin:0 0 10px;font-size:15px}
+.gloss{margin:10px auto 0;max-width:420px;font-size:12px;line-height:1.6;color:var(--muted);background:var(--panel);border-radius:10px;padding:8px 10px}
+.gloss div+div{margin-top:4px}
+.gloss b{color:var(--text)}
+.helpbtn{padding:4px 10px;font-family:var(--disp);font-size:13px;border-radius:8px}
+.overlay.center .sheet{max-height:94%}
 .sheet .btns{display:flex;gap:8px;margin-top:14px}
 .sheet .btns button{flex:1}
 .picks{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:8px}
@@ -209,7 +214,7 @@ const KW = {
 };
 const KW_HELP = {
   haste:'出したターンに攻撃できる', blocker:'このクリーチャーがスタンドしている間、相手はこのクリーチャー以外を攻撃できない（ハースストーンの挑発）',
-  unblockable:'守護を無視して攻撃できる', breakthrough:'守護を攻撃したとき、超過分のダメージが相手のライフに通る',
+  unblockable:'守護を無視して攻撃できる', breakthrough:'クリーチャーを攻撃したとき、相手の残り体力を超えた分のダメージが相手プレイヤーのライフに通る（装甲には止められる）',
   armor:'1回だけダメージまたは破壊を無効にする', drain:'相手のライフを減らした分、自分のライフを回復する', double:'1ターンに2回攻撃できる', deathtouch:'このクリーチャーから1以上のダメージを受けたクリーチャーは破壊される（装甲で防げる）'
 };
 const BASE_POWER = {1:2,2:3,3:4,4:5,5:6,6:7,7:8,8:9};
@@ -1198,8 +1203,10 @@ class Game {
       return;
     }
     const pa=this.power(atk), pb=this.power(target);
-    if((ctx.blocker || (target && this.hasKw(target,'blocker'))) && this.hasKw(atk,'breakthrough')){
-      const hb=Math.max(0,this.health(target)); const over=pa-hb - (this.hasKw(target,'armor')&&!target.armorUsed ? 99 : 0);
+    if(target && this.hasKw(atk,'breakthrough')){
+      // v2.5: 突破はクリーチャーへの攻撃すべてで有効。相手の残り体力（猛毒なら1）を超えた分が相手プレイヤーに通る。装甲で止められたら通らない
+      const need = (this.hasKw(target,'armor')&&!target.armorUsed) ? Infinity : (this.hasKw(atk,'deathtouch') ? 1 : Math.max(0,this.health(target)));
+      const over = pa - need;
       if(over>0){ this.loseLife(def, over, '突破'); if(this.hasKw(atk,'drain')) this.gainLife(p,over); }
     }
     this.battle(atk,target,0,retaliate);
@@ -1269,7 +1276,20 @@ class Game {
     }
     return [];
   }
+  // v2.6: コピー・進化・蘇生などで場に出たクリーチャーも登場時効果を発動する。
+  // ただし、そうして発動した登場時効果の中の「クリーチャーを場に出す効果」は発動しない（無限連鎖の防止）。
   applyEffect(t){
+    const ENTRY=Game.ENTRY;
+    if(!ENTRY.has(t.eff.e)) return this.applyEffectCore(t);
+    const before=new Set([...this.players[0].field,...this.players[1].field]);
+    this.applyEffectCore(t);
+    const depth=(t.depth||0)+1;
+    this.players.forEach(q=>q.field.forEach(cr=>{
+      if(before.has(cr) || cr.c.d.token) return;
+      this.effs(cr).forEach(y=>{ if(y.t==='etb') this.queue.push({type:'effect',p:q.i,src:cr.c,eff:y,depth,snap:{combo:0}}); });
+    }));
+  }
+  applyEffectCore(t){
     const p=this.players[t.p], o=this.opp(p), x=t.eff; let n=x.n;
     if(x.req && !this.reqOk(p, x.req, t, true)) return;
     if(x.bonus && this.reqOk(p, x.bonus.req, t, true)) n=(n||0)+x.bonus.n;
@@ -1371,7 +1391,7 @@ class Game {
       case 'discountHand': { p.hand.forEach(c=>{ c.cm=(c.cm||0)+n; }); this.say(p.name+'の手札のコストが'+n+'下がった','play'); break; }
       case 'ping': { if(t.choice==='player'){ this.loseLife(o,n,t.src.d.name); } else { const c=this.findCr(t.choice); if(c) this.dealDamage(c,n); } break; }
       case 'token': { if(p.field.length<FIELD_MAX){ p.field.push(this.mkCr(this.inst(AN.SKULL))); this.say(p.name+'は「骸」を出した','play'); } break; }
-      case 'revive': { const c=p.grave.find(g=>g.uid===t.choice); if(c&&p.field.length<FIELD_MAX){ p.grave.splice(p.grave.indexOf(c),1); const cr=this.mkCr(c); p.field.push(cr); this.say('「'+c.d.name+'」が墓地から場に出た（コスト不要）','play'); this.ev('play',{p:p.i,uid:c.uid}); c.d.effects.forEach(y=>{ if(y.t==='etb') this.queue.push({type:'effect',p:p.i,src:c,eff:y}); }); } break; }
+      case 'revive': { const c=p.grave.find(g=>g.uid===t.choice); if(c&&p.field.length<FIELD_MAX){ p.grave.splice(p.grave.indexOf(c),1); const cr=this.mkCr(c); p.field.push(cr); this.say('「'+c.d.name+'」が墓地から場に出た（コスト不要）','play'); this.ev('play',{p:p.i,uid:c.uid}); } break; }
     }
     this.checkWin();
   }
@@ -1384,6 +1404,7 @@ class Game {
   exec(t){
     switch(t.type){
       case 'effect': {
+        if((t.depth||0)>=1 && Game.ENTRY.has(t.eff.e)){ this.say('「'+t.src.d.name+'」の「'+AN.effectText(t.eff).replace(/。$/,'')+'」は連鎖防止のため発動しない'); return; }
         if(t.eff.req && !this.reqOk(this.players[t.p], t.eff.req, t, false)) return;
         if(t.rand && this.needsPick(t.eff) && t.choice===undefined){ t.opts=this.pickOptions(this.players[t.p], t.eff); if(!t.opts.length) return; t.choice=this.rng.int(t.opts.length); }
         if(t.rand && this.needsTarget(t.eff) && t.choice===undefined){ const cs=this.candidates(this.players[t.p], t.eff, t.src); if(!cs.length) return; t.choice=cs[this.rng.int(cs.length)]; }
@@ -1445,6 +1466,7 @@ class Game {
   // full visible-state snapshot helpers for UI
   activePlayer(){ return this.players[this.active]; }
 }
+Game.ENTRY=new Set(['cloneSelf','copyEnemy','evolve','revive','reviveAllSelf','massRevive','graveSteal','deckTopBoth','giftCopy','doubleEnemy']);
 AN.Game = Game; AN.CONST={HAND_MAX,FIELD_MAX,LIFE,HAND_START,ENERGY_MAX,DECK_SIZE};
 if(typeof module!=='undefined') module.exports = AN;
 })();
@@ -1827,8 +1849,52 @@ function sheet(html, center, modal){
   app.appendChild(o); return o;
 }
 function toast(s){ const t=document.createElement('div'); t.className='toast'; t.textContent=s; app.appendChild(t); setTimeout(()=>t.remove(),1200); }
+
+// ---------- 用語集 ----------
+const GLOSS_MECH = {
+  combo:['連撃N','このターンに自分がこのカード以外のカードをN枚以上プレイしていれば発動する（リーダー能力の使用も1枚に数える）。炎の看板メカニクス。'],
+  boost:['詠唱','手札にある間、自分がスペルを唱えるたびに詠唱+1され、強化やコスト減が進む（潮読みもスペル扱い）。水の看板メカニクス。'],
+  awaken:['繁茂','自分の最大エナジーが7以上なら発動する。森の看板メカニクス。'],
+  pray:['祈りN','このゲームで自分のライフが回復した回数がN以上なら発動する。光の看板メカニクス。'],
+  souls:['供物N','自分のカードが墓地に送られた数（破壊・スペル使用・捨て札）。Nを消費して発動する。闇の看板メカニクス。'],
+  stun:['気絶','レスト効果や凍結を受けた状態。持ち主の次のターン開始まで、攻撃できず、守護として働かず、攻撃されても反撃しない。'],
+  freeze:['凍結','気絶に加えて、持ち主の次のターン開始時にもスタンドしない。'],
+  rest:['レスト／スタンド','レスト＝横向きの状態。攻撃・守護ができない。自分のターン開始時にスタンド（縦向き）に戻る。攻撃してもレストはしない。'],
+  token:['トークン','効果で出る1/1などのクリーチャー。手札や山札に戻ると消え、墓地にも残らない。'],
+  perm:['永続／ターン終了時まで','「永続」の強化は場にいる間ずっと残る。「ターン終了時まで」はそのターンの終わりに消える。'],
+  dmg:['ダメージと体力','ダメージは蓄積し、体力0で破壊。戦闘では互いに攻撃力分のダメージを与え合う。'],
+  entry:['効果で場に出たクリーチャー','コピー・進化・蘇生・山札から直接など、手札以外から場に出たクリーチャーも登場時効果が発動する。ただし、その登場時効果のうち「クリーチャーを場に出す効果」（コピー・蘇生・進化など）は無限連鎖を防ぐため発動しない。相手のクリーチャーを変身させる効果（カエル化など）では発動しない。'],
+  leader:['リーダー能力','毎ターン1回、エナジーを払って使える固有能力。一部のカードで書き換えられる。'],
+};
+function glossTerms(d){
+  const out=[]; const add=(t,x)=>{ if(!out.some(o=>o[0]===t)) out.push([t,x]); };
+  const kws=new Set(d.kw||[]);
+  (d.effects||[]).forEach(x=>{ if(x.kw) kws.add(x.kw); if(x.tok && AN.TOKENS[x.tok]) AN.TOKENS[x.tok].kw.forEach(k=>kws.add(k)); });
+  if(d.equip) d.equip.kw.forEach(k=>kws.add(k));
+  kws.forEach(k=>{ if(AN.KW[k]) add(AN.KW[k], AN.KW_HELP[k]||''); });
+  const reqs=[]; (d.effects||[]).forEach(x=>{ if(x.req) reqs.push(x.req); if(x.bonus) reqs.push(x.bonus.req); if(x.scale==='combo') reqs.push({combo:1}); if(x.scale==='boost') reqs.push({boost:1}); if(x.scale==='pray') reqs.push({pray:1}); if(x.scale==='souls') reqs.push({souls:1}); });
+  if(d.sb) reqs.push({boost:1});
+  reqs.forEach(r=>{ Object.keys(r).forEach(k=>{ if(GLOSS_MECH[k]) add(GLOSS_MECH[k][0],GLOSS_MECH[k][1]); }); });
+  const txt=AN.cardText(d).join('');
+  if(/気絶/.test(txt)) add(GLOSS_MECH.stun[0],GLOSS_MECH.stun[1]);
+  if(/凍結/.test(txt)) add(GLOSS_MECH.freeze[0],GLOSS_MECH.freeze[1]);
+  if(/レスト/.test(txt)) add(GLOSS_MECH.rest[0],GLOSS_MECH.rest[1]);
+  if(/トークン|「(火花|泡|苗木|光の羽|骸|兵士|カエル)」/.test(txt)) add(GLOSS_MECH.token[0],GLOSS_MECH.token[1]);
+  if(/リーダー能力/.test(txt)) add(GLOSS_MECH.leader[0],GLOSS_MECH.leader[1]);
+  return out;
+}
+function glossHtml(list){ return list.length? '<div class="gloss">'+list.map(([t,x])=>'<div><b>'+esc(t)+'</b>：'+esc(x)+'</div>').join('')+'</div>' : ''; }
+function showGlossary(){
+  const kw=Object.keys(AN.KW).map(k=>[AN.KW[k], AN.KW_HELP[k]||'']);
+  const mech=['combo','boost','awaken','pray','souls'].map(k=>GLOSS_MECH[k]);
+  const rules=['dmg','rest','stun','freeze','perm','token','entry','leader'].map(k=>GLOSS_MECH[k]);
+  const leaders=AN.ATTR_ORDER.map(a=>[AN.ATTRS[a].n+'「'+AN.LEADER[a].name+'」', AN.LEADER[a].cost+'エナジー：'+AN.LEADER[a].text]);
+  const sec=(h,l)=>'<h3 style="margin-top:14px">'+h+'</h3>'+glossHtml(l);
+  sheet('<h3>用語集</h3>'+sec('キーワード能力',kw)+sec('属性の看板メカニクス',mech)+sec('基本ルール',rules)+sec('リーダー能力（初期）',leaders)+'<div class="btns"><button class="ghost" id="gclose">閉じる</button></div>');
+  const c=app.querySelector('#gclose'); if(c) c.onclick=closeSheet;
+}
 function cardSheet(d, o, buttons){
-  const s=sheet('<div id="bigwrap"></div><div class="btns" id="bigbtns"></div>', true);
+  const s=sheet('<div id="bigwrap"></div>'+glossHtml(glossTerms(d))+'<div class="btns" id="bigbtns"></div>', true);
   s.querySelector('#bigwrap').appendChild(cardEl(d, Object.assign({big:true},o||{})));
   const b=s.querySelector('#bigbtns');
   (buttons||[]).forEach(x=>{ const btn=document.createElement('button'); btn.textContent=x.label; btn.className=x.cls||''; btn.disabled=!!x.disabled; btn.onclick=()=>{ closeSheet(); x.fn&&x.fn(); }; b.appendChild(btn); });
@@ -1859,7 +1925,7 @@ function renderTitle(){
    +'<button id="btnOnline">オンライン対戦（部屋コード）</button>'
    +(loadOnline()?'<button id="btnOnlineResume">オンライン対戦を再開（部屋 '+esc(loadOnline().code)+'）</button>':'')
    +'<button id="btnCodex">カードリスト（図鑑）</button>'
-   +'</div><div class="sub" style="margin-top:28px;font-size:11px">v2.4 — CPU戦・'+AN.CARDS.length+'種プール</div></div>';
+   +'</div><div class="sub" style="margin-top:28px;font-size:11px">v2.6 — CPU戦・'+AN.CARDS.length+'種プール</div></div>';
   s.querySelector('#btnNew').onclick=()=>show('setup');
   s.querySelector('#btnCodex').onclick=()=>show('codex');
   s.querySelector('#btnOnline').onclick=()=>show('lobby');
@@ -1916,7 +1982,7 @@ function renderDraft(){
   const deckOk=deck.every(i=>attrOk(pool[i]));
   const curve=[0,0,0,0,0,0,0,0,0]; inDeck.forEach(d=>curve[Math.min(8,d.cost)]++);
   const maxC=Math.max(1,...curve);
-  s.innerHTML='<div class="topbar"><button class="ghost" id="back">←</button><div class="t">デッキ構築 <span class="sub">第'+series.gameNo+'ゲーム'+(series.online?' ・ 部屋 '+series.online.code:'')+(main?' ・ <span style="color:'+AN.ATTRS[main].c+'">'+AN.ATTRS[main].n+'（'+AN.ATTRS[main].k+'）</span>':'')+'</span></div><button class="ghost" id="auto">おまかせ</button></div>'
+  s.innerHTML='<div class="topbar"><button class="ghost" id="back">←</button><div class="t">デッキ構築 <span class="sub">第'+series.gameNo+'ゲーム'+(series.online?' ・ 部屋 '+series.online.code:'')+(main?' ・ <span style="color:'+AN.ATTRS[main].c+'">'+AN.ATTRS[main].n+'（'+AN.ATTRS[main].k+'）</span>':'')+'</span></div><button class="ghost helpbtn" id="help">？</button><button class="ghost" id="auto">おまかせ</button></div>'
    +'<div class="mainpick"><span class="sub">メイン属性</span>'+AN.ATTR_ORDER.map(a=>{ const k=pool.filter(d=>!d.anomaly&&d.attr.includes(a)).length; return '<button data-a="'+a+'" class="'+(main===a?'on':'')+'" style="--ac:'+AN.ATTRS[a].c+'">'+AN.ATTRS[a].n+'<small>'+k+'枚</small></button>'; }).join('')+'</div>'
    +'<div class="sub" style="padding:2px 12px 0;font-size:11px">今回配られた属性：'+AN.ATTR_ORDER.filter(a=>pool.some(d=>!d.anomaly&&d.attr.includes(a))).map(a=>'<span style="color:'+AN.ATTRS[a].c+'">'+AN.ATTRS[a].n+'</span>').join('・')+'</div>'
    +(main?'<div class="sub" style="padding:2px 12px 4px;font-size:11px">リーダー能力「'+esc(AN.LEADER[main].name)+'」：'+esc(AN.LEADER[main].text)+'</div>':'<div class="sub" style="padding:2px 12px 4px;font-size:11px">90枚を見て、メイン属性を選んでください（デッキ＝メイン属性＋無属性＋アノマリー）</div>')
@@ -1948,6 +2014,7 @@ function renderDraft(){
   }
   function groupsNow(g){ return poolGroups(series.pools[MY]).find(x=>x.d===g.d)||g; }
   s.querySelectorAll('.filters button').forEach(b=>b.onclick=()=>{ ui.filter=b.dataset.f; renderDraft(); });
+  s.querySelector('#help').onclick=showGlossary;
   s.querySelectorAll('.mainpick button').forEach(b=>b.onclick=()=>{ series.mains[MY]=b.dataset.a; const ok=d=>d.anomaly||d.attr.length===0||d.attr.includes(b.dataset.a); series.decks[MY]=series.decks[MY].filter(i=>ok(pool[i])); save(); renderDraft(); });
   s.querySelector('#back').onclick=()=>{ if(series.online){ onlineLeave(); series=null; } show('title'); };
   s.querySelector('#auto').onclick=()=>{ if(!series.mains[MY]) series.mains[MY]=AN.AI.bestMain(pool); series.decks[MY]=indicesFor(pool, AN.AI.autoDeck(pool, AN.makeRng(series.seed+series.gameNo+MY), series.mains[MY])); save(); renderDraft(); };
@@ -2025,7 +2092,8 @@ function renderBattle(){
   const last=game.log.length?game.log[game.log.length-1]:{s:''};
   const mid=document.createElement('div'); mid.className='mid';
   const phaseTxt = game.winner!=null?'終了': game.active===ME?'あなたのターン':(series.online?'相手のターン':'CPUのターン');
-  mid.innerHTML='<div class="logline">'+esc(last.s)+'</div><div class="phase '+(game.active===ME?'you':'')+'">'+phaseTxt+'</div>';
+  mid.innerHTML='<div class="logline">'+esc(last.s)+'</div><button class="ghost helpbtn" id="help" title="用語集">？</button><div class="phase '+(game.active===ME?'you':'')+'">'+phaseTxt+'</div>';
+  mid.querySelector('#help').onclick=(e)=>{ e.stopPropagation(); showGlossary(); };
   mid.querySelector('.logline').onclick=showLog;
   s.appendChild(mid);
   s.appendChild(fieldEl(me,true));
@@ -2265,6 +2333,7 @@ function onlineSend(a){ const o=series.online; getNet().pushAction(o.code, serie
 async function onlineGameOver(w){ const o=series.online; const n=series.playingNo; const gd=(room.games||{})[n]||{}; if(gd.result==null) await getNet().set(o.code,'games/'+n+'/result', w); }
 
 window.__act=(a)=>doAct(a);
+window.__g=()=>game; window.__rb=()=>renderBattle();
 // boot
 if(location.search.includes('auto=1')){ /* debug hook */ }
 render();

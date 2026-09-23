@@ -402,7 +402,7 @@ K('N05','巨人の子','none',4,'C',[],[],{i:'giant'}),
 K('N06','冒険者','none',3,'C',[],[ef('etb','draw',{n:1})],{i:'runner'}),
 K('N07','治療師','none',2,'C',[],[ef('etb','heal',{n:2})],{i:'heart'}),
 K('N08','斥候','none',1,'C',[],[ef('etb','scry',{n:2})],{i:'eye'}),
-P('N09','罠','none',2,'C',[ef('cast','dmg',{n:2})],{i:'spider'}),
+P('N09','罠','none',2,'C',[ef('cast','dmg',{n:3})],{i:'spider'}),
 P('N10','大砲','none',4,'C',[ef('cast','dmg',{n:4})],{i:'meteor'}),
 P('N11','交易','none',3,'C',[ef('cast','draw',{n:2})],{i:'book'}),
 P('N12','補給','none',2,'C',[ef('cast','heal',{n:4})],{i:'potion'}),
@@ -436,31 +436,31 @@ K('T35','珊瑚の守り手','tide',3,'C',['blocker'],[ef('etb','boostHand',{n:1
 K('T36','氷壁の番人','tide',4,'U',['blocker'],[ef('etb','freeze',{})],{i:'snowflake',st:[1,5]}),
 ];
 // ---- スタッツ自動算出（明示 st があれば優先）----
+// v2.3: ハースストーン寄りの配分。合計＝コスト×2＋1（R+1/L+2）、効果税は1つ1.5（条件付き・破壊時は0.5）、攻撃比率は0.5前後
 (function(){
   const KWC={haste:1,unblockable:2,breakthrough:1,blocker:1,armor:2,drain:1,double:3,deathtouch:2};
-  const RATIO={flare:0.6,tide:0.62,grow:0.55,ray:0.5,void:0.6};
+  const RATIO={flare:0.52,tide:0.52,grow:0.5,ray:0.5,void:0.52};
   CARDS.forEach(d=>{
     if(d.type!=='creature') return;
     if(d.st){ d.power=d.st[0]; d.hp=d.st[1]; return; }
     let total=2*d.cost+1+({R:1,L:2}[d.rarity]||0)+(d.dev||0);
     d.kw.forEach(k=>total-=KWC[k]||0);
-    d.effects.forEach(x=>{ if(x.e==='lifecost'||x.e==='selfDestroy'){ total+=2; return; } if(x.req) total-=1; else if(x.t==='death') total-=1; else total-=2; });
+    d.effects.forEach(x=>{ if(x.e==='lifecost'||x.e==='selfDestroy'){ total+=2; return; } if(x.req||x.t==='death') total-=0.5; else total-=1.5; });
     if(d.attr[0]==='tide' && d.sb) total+=1;
-    if(d.attr[0]==='flare' && d.cost<=3) total-=1;
+    if(d.attr[0]==='flare') total-=1;
     if(d.costFn) total=2*d.cost+1;
-    total=Math.max(2,total);
-    let r=d.attr.length?RATIO[d.attr[0]]:0.55; if(d.kw.includes('blocker')) r=0.3;
-    let a=Math.max(1,Math.min(total-1,Math.round(total*r))); let h=total-a;
+    total=Math.max(2,Math.round(total));
+    let r=d.attr.length?RATIO[d.attr[0]]:0.5; if(d.kw.includes('blocker')) r=0.3;
+    let a=Math.max(1,Math.min(total-1,Math.round(total*r-0.01))); let h=total-a;
     if(d.attr[0]==='grow' && d.cost>=5) h+=1;
     if(d.attr[0]==='ray' && !d.kw.includes('blocker')) h+=1;
-    if(d.attr[0]==='ray' && !d.kw.includes('blocker') && d.cost>=3) a+=1;
     d.power=a; d.hp=h;
   });
 })();
 const CARD_BY_ID = {}; CARDS.forEach(c=>CARD_BY_ID[c.id]=c);
 
 // ---- effect text ----
-const TRIG = { etb:'登場時：', atk:'攻撃時：', death:'破壊時：', cast:'', turnstart:'自分のターン開始時：', oppturnstart:'相手のターン開始時：', static:'', endturn:'自分のターン終了時：', spell:'自分がスペルを唱えるたび：', ability:'リーダー能力を使うたび：', heal:'自分のライフが回復するたび：', allyDeath:'自分の他のクリーチャーが破壊されるたび：', summon:'自分が他のクリーチャーを出すたび：', play:'自分が他のカードをプレイするたび：', handturn:'手札にある間、自分のターン開始時：' };
+const TRIG = { etb:'登場時：', atk:'攻撃時：', death:'破壊時：', cast:'', turnstart:'自分のターン開始時：', oppturnstart:'相手のターン開始時：', static:'', endturn:'自分のターン終了時：', spell:'自分がスペルを唱えるたび：', ability:'リーダー能力を使うたび：', heal:'自分のライフが回復するたび：', allyDeath:'自分の他のクリーチャーが破壊されるたび：', summon:'自分がこのクリーチャー以外のクリーチャーを出すたび：', play:'自分がこのカード以外のカードをプレイするたび：', handturn:'手札にある間、自分のターン開始時：' };
 function condText(o){
   if(o.minPower!=null) return '攻撃力'+o.minPower+'以上の';
   if(o.damaged && o.maxCost!=null) return 'ダメージを受けているコスト'+o.maxCost+'以下の';
@@ -491,8 +491,8 @@ function effectTextBase(x){
   const per = x.per==='attr' ? '自分の'+attrName(x.attrRef||'')+'クリーチャー1体につき、' : '';
   if(per){
     switch(x.e){
-      case 'damage': return per+'相手のライフを'+n+'減らす。';
-      case 'draw': return per+'カードを'+n+'枚引く。';
+      case 'damage': return per+'相手プレイヤーのライフを'+n+'減らす。';
+      case 'draw': return per+'自分はカードを'+n+'枚引く。';
       case 'heal': return per+'自分のライフを'+n+'回復する。';
     }
   }
@@ -501,64 +501,64 @@ function effectTextBase(x){
     if(x.e==='buffAll') return '自分の'+attrName(x.attr)+'クリーチャーはすべてターン終了時まで+'+n+'/+'+n+'。';
   }
   switch(x.e){
-    case 'draw': return 'カードを'+n+'枚引く。';
+    case 'draw': return '自分はカードを'+n+'枚引く。';
     case 'destroy': return '相手の'+condText(x)+'クリーチャー1体を破壊する。';
     case 'dmg': return '相手のクリーチャー1体に'+n+'ダメージ。';
     case 'dmgAll': return '相手のクリーチャーすべてに'+n+'ダメージ。';
     case 'destroyAll': return '相手の'+condText(x)+'クリーチャーをすべて破壊する。';
     case 'bounce': return '相手の'+condText(x)+'クリーチャー1体を手札に戻す。';
     case 'bounceAll': return '相手のクリーチャーをすべて手札に戻す。';
-    case 'freeze': return '相手のクリーチャー1体をレストして凍結する（気絶し、次のスタンドもしない）。';
-    case 'tap': return '相手のクリーチャー1体をレストして気絶させる（次のスタンドまで、攻撃されても反撃せず、ブロックもできない）。';
-    case 'tapAll': return '相手のクリーチャーをすべてレストして気絶させる（反撃・ブロック不可）。';
-    case 'damage': return '相手のライフを'+n+'減らす。';
+    case 'freeze': return '相手のクリーチャー1体を凍結する（気絶し、持ち主の次のターンもスタンドしない）。';
+    case 'tap': return '相手のクリーチャー1体をレストして気絶させる（持ち主の次のターン開始まで、攻撃できず、守護として働かず、攻撃されても反撃しない）。';
+    case 'tapAll': return '相手のクリーチャーすべてをレストして気絶させる（持ち主の次のターン開始まで、攻撃できず、守護として働かず、攻撃されても反撃しない）。';
+    case 'damage': return '相手プレイヤーのライフを'+n+'減らす。';
     case 'heal': return '自分のライフを'+n+'回復する。';
-    case 'ramp': return '最大エナジー+'+n+'（上限10）。';
-    case 'energyNow': return 'このターンのエナジー+'+n+'。';
+    case 'ramp': return '自分の最大エナジー+'+n+'（上限10）。';
+    case 'energyNow': return 'このターンだけ、自分のエナジー+'+n+'。';
     case 'discard': return '相手は手札をランダムに'+n+'枚捨てる。';
     case 'revive': return '自分の墓地からコスト'+x.maxCost+'以下のクリーチャー1体（このカード自身を除く）を場に出す。';
-    case 'buff': return '自分のクリーチャー1体はターン終了時まで+'+n+'/+'+n+'。';
-    case 'buffAll': return '自分のクリーチャーはすべてターン終了時まで+'+n+'/+'+n+'。';
+    case 'buff': return '自分のクリーチャー1体'+(x._cr?'（このクリーチャーも選べる）':'')+'に、ターン終了時まで+'+n+'/+'+n+'。';
+    case 'buffAll': return '自分のクリーチャーすべて'+(x._cr?'（このクリーチャーを含む）':'')+'に、ターン終了時まで+'+n+'/+'+n+'。';
     case 'pumpSelf': return 'このクリーチャーに+'+n+'/+'+n+'。';
     case 'lifecost': return '自分のライフを'+n+'失う。';
     case 'aura': return '自分の他のクリーチャーは+'+n+'/+'+n+'。';
-    case 'spellTax': return '相手のスペルのコスト+1。';
-    case 'fight': return '自分の最も攻撃力の高いクリーチャー'+(n?'（攻撃力+'+n+'）':'')+'が、相手のクリーチャー1体と戦闘する。';
-    case 'pumpTarget': return '自分のクリーチャー1体に+'+n+'/+'+n+'（永続）。';
-    case 'freezeAll': return '相手のクリーチャーをすべてレストして凍結する（気絶し、次のスタンドもしない）。';
+    case 'spellTax': return '相手が唱えるスペルのコスト+1。';
+    case 'fight': return '自分の場で最も攻撃力の高いクリーチャー'+(n?'が、このときだけ攻撃力+'+n+'して、':'が、')+'相手のクリーチャー1体と戦闘する（お互いにダメージを与え合う）。';
+    case 'pumpTarget': return '自分のクリーチャー1体'+(x._cr?'（このクリーチャーも選べる）':'')+'に+'+n+'/+'+n+'（永続）。';
+    case 'freezeAll': return '相手のクリーチャーすべてを凍結する（気絶し、持ち主の次のターンもスタンドしない）。';
     case 'selfDestroy': return 'このクリーチャーを破壊する。';
     case 'steal': return '相手のクリーチャー1体のコントロールを得る。';
-    case 'swapBoards': return '自分と相手の場のクリーチャーをすべて入れ替える。';
+    case 'swapBoards': return '自分と相手の場のクリーチャーをすべて入れ替える'+(x._cr?'（このクリーチャーも相手の場に移る）':'')+'。';
     case 'swapLife': return '自分と相手のライフを入れ替える。';
-    case 'cloneSelf': return 'このクリーチャーのコピーを1体出す。';
-    case 'polymorph': return '相手のクリーチャー1体を1/1の「カエル」に変える。';
-    case 'equalize': return 'すべてのクリーチャーを'+n+'/'+n+'にする（ダメージは消える）。';
-    case 'mill': return '相手の山札の上から'+n+'枚を墓地に送る。';
+    case 'cloneSelf': return '自分の場にこのクリーチャーのコピーを1体出す（強化は引き継がない）。';
+    case 'polymorph': return '相手のクリーチャー1体を1/1の「カエル」に変える（元の能力・強化・受けたダメージはすべて失われる）。';
+    case 'equalize': return 'お互いのクリーチャーすべて'+(x._cr?'（このクリーチャーを含む）':'')+'を'+n+'/'+n+'にする（強化とダメージは消える）。';
+    case 'mill': return '相手の山札の上から'+n+'枚を相手の墓地に送る。';
     case 'handRefresh': return 'お互いに手札をすべて捨て、同じ枚数を引き直す。';
     case 'massRevive': return 'お互いの墓地のクリーチャーをすべて持ち主の場に出す（このカード自身を除く。場の上限まで）。';
-    case 'dmgAllBoth': return 'すべてのクリーチャーに'+n+'ダメージ。';
+    case 'dmgAllBoth': return 'お互いのクリーチャーすべて'+(x._cr?'（このクリーチャーを含む）':'')+'に'+n+'ダメージ。';
     case 'toHand': return 'このカードを手札に戻す。';
-    case 'sacrifice': return '自分の他のクリーチャーをすべて破壊し、1体につきこのクリーチャーのパワー+3。';
+    case 'sacrifice': return '自分の他のクリーチャーをすべて破壊し、1体につきこのクリーチャーに+3/+3。';
     case 'coin': return 'コインを投げる。表なら相手のクリーチャーすべてに5ダメージ、裏なら自分のライフ-5。';
-    case 'copyEnemy': return '相手のクリーチャー1体のコピーを自分の場に出す。';
-    case 'resetAll': return 'すべてのクリーチャーを持ち主の手札に戻す。';
+    case 'copyEnemy': return '相手のクリーチャー1体を選び、そのコピーを自分の場に出す（強化・ダメージは引き継がない）。';
+    case 'resetAll': return 'お互いのクリーチャーすべて'+(x._cr?'（このクリーチャーを含む）':'')+'を持ち主の手札に戻す（トークンは消える）。';
     case 'graveSteal': return '相手の墓地で最もコストの高いクリーチャーを自分の場に出す。';
-    case 'silenceAll': return '相手のクリーチャーすべての能力を失わせる。';
+    case 'silenceAll': return '相手のクリーチャーすべての能力を失わせる（あとから与えられた能力も含む）。';
     case 'ping': return '相手のライフ、または相手のクリーチャー1体に'+n+'ダメージ。';
     case 'weaken': return '相手のクリーチャー1体に-'+n+'/-'+n+'（永続）。';
     case 'weakenAll': return '相手のクリーチャーすべてに-'+n+'/-'+n+'（永続）。';
     case 'randomDmgCr': return 'ランダムな相手のクリーチャー1体に'+n+'ダメージ。';
-    case 'pumpAll': return '自分のクリーチャーすべてに+'+n+'/+'+n+'（永続）。';
-    case 'boostHand': return '手札の詠唱カードすべての詠唱+'+n+'。';
+    case 'pumpAll': return '自分のクリーチャーすべて'+(x._cr?'（このクリーチャーを含む）':'')+'に+'+n+'/+'+n+'（永続）。';
+    case 'boostHand': return '自分の手札にある詠唱カードすべての詠唱+'+n+'。';
     case 'sac': return '自分の他のクリーチャー1体を破壊する。';
-    case 'recallSpell': return '自分の墓地のスペル1枚のコピーを手札に加える。';
-    case 'devour': return '供物をすべて消費し、1つにつき+1/+1。';
-    case 'reviveAllSelf': return '自分の墓地のクリーチャーをすべて場に出す（場の上限まで）。';
+    case 'recallSpell': return '自分の墓地にあるスペルからランダムに1枚、そのコピーを自分の手札に加える。';
+    case 'devour': return '自分の供物をすべて消費し、1つにつきこのクリーチャーに+1/+1。';
+    case 'reviveAllSelf': return '自分の墓地のクリーチャーをすべて自分の場に出す（場の上限まで。相手の墓地には影響しない）。';
     case 'swapHands': return 'お互いの手札をすべて交換する。';
     case 'shiftSelf': return 'このカードは同じコストのランダムなカードに変わる。';
     case 'giveSelf': return 'このクリーチャーのコントロールが相手に移る。';
     case 'setLifeBoth': return 'お互いのライフを'+n+'にする。';
-    case 'castRandom': return 'ランダムなスペルを'+n+'つ唱える（対象もランダム）。';
+    case 'castRandom': return '全カードの中からランダムなスペルを'+n+'つ、自分が唱えたものとして使う（対象もランダム）。';
     case 'swapEnergy': return 'お互いの最大エナジーを入れ替える。';
     case 'reroll': return 'このクリーチャーの攻撃力と体力を1〜10でランダムに決め直す。';
     case 'coins': return 'コインを'+n+'回投げ、表の数だけカードを引き、裏の数だけライフを失う。';
@@ -569,32 +569,32 @@ function effectTextBase(x){
     case 'giftAnomaly': return '相手の手札に新しく生まれるアノマリーを1枚加える。';
     case 'swapGraveDeck': return '自分の山札と墓地を入れ替えて切り直す。';
     case 'doubleEnemy': return '相手の場のクリーチャーすべてのコピーを、相手の場にもう1体ずつ出す。';
-    case 'shuffleOwners': return '場のすべてのクリーチャーの持ち主をランダムに決め直す。';
-    case 'shrinkAll': return 'すべてのクリーチャーを1/1にする。';
+    case 'shuffleOwners': return 'お互いの場のクリーチャーすべて'+(x._cr?'（このクリーチャーを含む）':'')+'について、どちらの場にいるかをランダムに決め直す。';
+    case 'shrinkAll': return 'お互いのクリーチャーすべて'+(x._cr?'（このクリーチャーを含む）':'')+'を1/1にする。';
     case 'healOpp': return '相手のライフを'+n+'回復する。';
     case 'drawOpp': return '相手はカードを'+n+'枚引く。';
-    case 'grant': return '自分のクリーチャー1体に'+KW[x.kw]+'を与える。';
-    case 'grantAll': return '自分のクリーチャーすべてに'+KW[x.kw]+'を与える。';
-    case 'addCard': { const sp=SPECIAL[x.card]; return (x.to==='opp'?'相手の':'')+'手札に「'+sp.name+'」（'+spText(sp)+'）を'+(n||1)+'枚加える。'; }
+    case 'grant': return '自分のクリーチャー1体'+(x._cr?'（このクリーチャーも選べる）':'')+'に'+KW[x.kw]+'を与える（永続）。';
+    case 'grantAll': return '自分のクリーチャーすべて'+(x._cr?'（このクリーチャーを含む）':'')+'に'+KW[x.kw]+'を与える（永続）。';
+    case 'addCard': { const sp=SPECIAL[x.card]; return (x.to==='opp'?'相手の':'自分の')+'手札に「'+sp.name+'」（'+spText(sp)+'）を'+(n||1)+'枚加える。'; }
     case 'deckAdd': { const sp=SPECIAL[x.card]; return '相手の山札に「'+sp.name+'」（'+spText(sp)+'）を'+(n||1)+'枚混ぜる。'; }
-    case 'transformHand': return x.all ? '自分の手札をすべて、同じコストのランダムなカードに変える。' : '自分の手札のランダムな'+(n||1)+'枚を、同じコストのランダムなカードに変える。';
-    case 'evolve': return x.all ? '自分のクリーチャーすべてを、コスト+'+n+'のランダムなクリーチャーに変える。' : '自分のクリーチャー1体を、コスト+'+n+'のランダムなクリーチャーに変える。';
-    case 'copyHand': return '相手の手札のランダムな1枚のコピーを手札に加える。';
-    case 'graveCopy': return '相手の墓地のランダムな1枚のコピーを手札に加える。';
+    case 'transformHand': return x.all ? '自分の手札のカードすべて（アノマリーを除く）を、それぞれ同じコストのランダムなカードに変える。' : '自分の手札からランダムに'+(n||1)+'枚（アノマリーを除く）を、それぞれ同じコストのランダムなカードに変える。';
+    case 'evolve': return (x.all ? '自分のクリーチャーすべて'+(x._cr?'（このクリーチャーを含む）':'') : '自分のクリーチャー1体'+(x._cr?'（このクリーチャーも選べる）':''))+'を、元のコスト+'+n+'のランダムなクリーチャーに変える（強化・ダメージ・与えられた能力は引き継がない）。';
+    case 'copyHand': return '相手の手札からランダムに1枚選び、そのコピーを自分の手札に加える（相手の手札は減らない）。';
+    case 'graveCopy': return '相手の墓地からランダムに1枚選び、そのコピーを自分の手札に加える。';
     case 'stealHand': return '相手の手札からランダムに'+(n||1)+'枚奪う。';
     case 'shuffleHand': return '相手の手札をすべて山札に戻して切り直し、同じ枚数を引かせる。';
     case 'doubleSelf': return 'このクリーチャーの攻撃力と体力を2倍にする。';
     case 'swapStatsAll': return 'すべてのクリーチャーの攻撃力と体力を入れ替える。';
-    case 'discountHand': return '自分の手札のカードのコストを'+n+'下げる（0未満にはならない）。';
-    case 'tokens': { const t=TOKENS[x.tok||'none']; return '「'+t.name+'」（1/1'+(t.kw.length?'・'+t.kw.map(k=>KW[k]).join('・'):'')+(t.effects.length?'・毎ターン+1':'')+'）を'+n+'体出す。'; }
-    case 'discover': return '自分のメイン属性か無属性のカードをランダムに3枚提示し、1枚を手札に加える。';
-    case 'scry': return '山札の上から'+n+'枚を見て、1枚を手札に加え、残りを山札の下に置く。';
-    case 'randomDmg': return 'ランダムな相手（クリーチャーかプレイヤー）に1ダメージを'+n+'回与える。';
-    case 'randomCard': return '自分のメイン属性のランダムなカードを1枚手札に加える。';
-    case 'tutor': return '山札からランダムなクリーチャーを1枚手札に加える。';
-    case 'shuffleBack': return '相手のクリーチャー1体を相手の山札に戻す。';
-    case 'morph': return '相手のクリーチャー1体を、同じコストのランダムなクリーチャーに変える。';
-    case 'token': return 'パワー1の「骸」トークンを1体出す。';
+    case 'discountHand': return '自分の手札にあるカードすべてのコストを'+n+'下げる（0未満にはならない。あとから手札に来たカードは対象外）。';
+    case 'tokens': { const t=TOKENS[x.tok||'none']; return '自分の場に「'+t.name+'」（1/1'+(t.kw.length?'・'+t.kw.map(k=>KW[k]).join('・'):'')+(t.effects.length?'・自分のターン開始時に+1/+1':'')+'）を'+n+'体出す。'; }
+    case 'discover': return '自分のメイン属性か無属性のカードからランダムに3枚を見て、1枚を選んで自分の手札に加える。';
+    case 'scry': return '自分の山札の上から'+n+'枚を見て、1枚を自分の手札に加え、残りを自分の山札の下に置く。';
+    case 'randomDmg': return '相手のクリーチャーか相手プレイヤーからランダムに選んで1ダメージ、を'+n+'回行う。';
+    case 'randomCard': return '自分のメイン属性か無属性のカードからランダムに1枚を自分の手札に加える。';
+    case 'tutor': return '自分の山札からランダムにクリーチャー1枚を自分の手札に加える。';
+    case 'shuffleBack': return '相手のクリーチャー1体を相手の山札のランダムな位置に戻す（トークンは消える）。';
+    case 'morph': return '相手のクリーチャー1体を、同じコストのランダムなクリーチャーに変える（元の能力・強化・ダメージは引き継がない）。';
+    case 'token': return '自分の場に1/1の「骸」トークンを1体出す。';
   }
   return '';
 }
@@ -615,7 +615,7 @@ function cardText(d){
   }
   // group effects by trigger keeping order
   const seen={}; const order=[];
-  d.effects.forEach(x=>{ if(!seen[x.t]){seen[x.t]=[];order.push(x.t);} seen[x.t].push(effectText(x.per?Object.assign({attrRef:d.attr[0]},x):x)); });
+  d.effects.forEach(x=>{ if(!seen[x.t]){seen[x.t]=[];order.push(x.t);} seen[x.t].push(effectText(Object.assign({_cr:d.type==='creature'},x.per?{attrRef:d.attr[0]}:{},x))); });
   order.forEach(t=>lines.push(TRIG[t]+seen[t].join('')));
   return lines;
 }
@@ -710,7 +710,7 @@ function makeAnomaly(rng, idx, main){
     let total=2*cost+1+(rng()<0.35?1:0);
     chosen.forEach(p=>{ if(p.kw) total-=KWP[p.kw]||0; else total-= (wild.includes(p)?3:2); });
     total=Math.max(2,total);
-    let r={flare:0.6,tide:0.6,grow:0.6,ray:0.5,void:0.6}[attrs[0]]; if(d.kw.includes('blocker')) r=0.4; d.power=Math.max(1,Math.round(total*r)); d.hp=Math.max(1,total-d.power); if(attrs[0]==='grow') d.hp++; if(attrs[0]==='tide') d.power++;
+    let r={flare:0.56,tide:0.52,grow:0.5,ray:0.45,void:0.52}[attrs[0]]; if(d.kw.includes('blocker')) r=0.4; d.power=Math.max(1,Math.round(total*r)); d.hp=Math.max(1,total-d.power); if(attrs[0]==='grow') d.hp++; if(attrs[0]==='tide') d.power++;
   }
   return d;
 }
@@ -1828,7 +1828,7 @@ function renderTitle(){
    +'<button id="btnOnline">オンライン対戦（部屋コード）</button>'
    +(loadOnline()?'<button id="btnOnlineResume">オンライン対戦を再開（部屋 '+esc(loadOnline().code)+'）</button>':'')
    +'<button id="btnCodex">カードリスト（図鑑）</button>'
-   +'</div><div class="sub" style="margin-top:28px;font-size:11px">v2.2 — CPU戦・'+AN.CARDS.length+'種プール</div></div>';
+   +'</div><div class="sub" style="margin-top:28px;font-size:11px">v2.3 — CPU戦・'+AN.CARDS.length+'種プール</div></div>';
   s.querySelector('#btnNew').onclick=()=>show('setup');
   s.querySelector('#btnCodex').onclick=()=>show('codex');
   s.querySelector('#btnOnline').onclick=()=>show('lobby');

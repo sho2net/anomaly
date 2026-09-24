@@ -892,6 +892,7 @@ const BOSSES = [
   { key:'b3', name:'大森林の王', attr:'grow', tier:2, life:42, leader:'bloom', energy:0, legends:1, anomalies:2, desc:'ライフ42。リーダー能力「大成長」（+2/+2）。レアまでの森デッキ＋伝説1枚。' },
   { key:'b4', name:'天光の審判者', attr:'ray', tier:3, life:35, leader:'boss_ray', energy:1, legends:1, anomalies:3, desc:'ライフ35。最大エナジー+1で開始。リーダー能力「裁きの光」（4回復＋守護トークン）。レジェンド入りの光デッキ＋伝説1枚。' },
   { key:'b5', name:'冥府の支配者', attr:'void', tier:3, life:45, leader:'boss_void', energy:1, legends:2, anomalies:3, desc:'ライフ45。最大エナジー+1で開始。リーダー能力「冥王の呪」（相手全体-1/-1）。レジェンド入りの闇デッキ＋伝説2枚。' },
+  { key:'b6', name:'特異点アノマリア', attr:null, special:'anomaly', tier:3, life:45, leader:null, energy:2, legends:3, anomalies:12, desc:'ライフ45。最大エナジー+2で開始。デッキの大半がアノマリー（伝説3枚）。自分のターン開始時、リーダー能力がランダムに変わり、手札の1枚が新しいアノマリーに変わる。' },
 ];
 Object.assign(AN, { BOSSES, LEGEND_TYPES, makeLegend, LEADER_EX, FROG, SKULL, TOKENS, SPECIAL, makeWeird, reqText, LEADER, ATTR_ALL, makeRng, hashStr, ATTRS, ATTR_ORDER, RARITY, KW, KW_HELP, BASE_POWER, CARDS, CARD_BY_ID, cardText, effectText, drawPool, makeAnomaly, cardValue });
 if(typeof module!=='undefined') module.exports = AN;
@@ -1073,6 +1074,7 @@ class Game {
     if(opts.lifes) this.players.forEach((p,i)=>{ if(opts.lifes[i]) p.life=opts.lifes[i]; });
     if(opts.leaders) this.players.forEach((p,i)=>{ if(opts.leaders[i]) p.leaderOverride=AN.LEADER_EX[opts.leaders[i]]; });
     if(opts.energyBonus) this.players.forEach((p,i)=>{ p.energyMax=opts.energyBonus[i]||0; });
+    if(opts.bossRules) this.players.forEach((p,i)=>{ p.bossRules=opts.bossRules[i]||null; });
     this.phase = 'main'; this.queue=[]; this.pending=null; this.winner=null; this.log=[]; this.events=[];
     this.attackCtx=null;
     for(const p of this.players) this.draw(p, HAND_START + (p.i===this.first?0:1), true);
@@ -1176,6 +1178,14 @@ class Game {
     this.turn++; const p=this.players[this.active]; this.phase='main'; p.abilityUsed=false;
     p.field.forEach(c=>{ if(c.frozen){ c.frozen=false; } else { c.tapped=false; c.stun=false; } c.sick=false; c.tmp=0; c.doubled=false; c.attacked=false; });
     p.energyMax=Math.min(ENERGY_MAX,p.energyMax+1); p.energy=p.energyMax; p.plays=0;
+    if(p.bossRules && p.bossRules.chaos){
+      const keys=Object.keys(AN.LEADER_EX).filter(k=>!k.startsWith('boss_'));
+      const pool=keys.map(k=>AN.LEADER_EX[k]).concat(AN.ATTR_ORDER.map(a=>AN.LEADER[a]));
+      p.leaderOverride=pool[this.rng.int(pool.length)]; p.abilityUsed=false;
+      this.say(p.name+'のリーダー能力が「'+p.leaderOverride.name+'」に変異した','play');
+      const idx=p.hand.map((c,i)=>i).filter(i=>!p.hand[i].d.anomaly);
+      if(idx.length){ const i=idx[this.rng.int(idx.length)]; const old=p.hand[i]; p.hand[i]=this.inst(AN.makeAnomaly(this.rng, 20000+this.uid*3+1, null)); this.say(p.name+'の手札の1枚が新たなアノマリーに変異した','draw'); }
+    }
     if(p.bonusNext){ p.energy+=p.bonusNext; this.say(p.name+'のエナジー+'+p.bonusNext,'charge'); p.bonusNext=0; }
     this.say('― '+p.name+'のターン'+this.turn+' ―','turn');
     if(!(firstTurn)) this.draw(p,1);
@@ -1889,6 +1899,15 @@ function step(g, level){
 }
 
 function bossDeck(boss, rng){
+  if(boss.special==='anomaly'){
+    const pool=[];
+    AN.CARDS.forEach(d=>{ if(d.rarity!=='C') pool.push(d); });
+    const an=[];
+    for(let i=0;i<boss.legends;i++) an.push(AN.makeLegend(rng, 9100+i*3));
+    for(let i=0;i<boss.anomalies-boss.legends;i++) an.push(AN.makeAnomaly(rng, 9101+i, null));
+    const rest=autoDeck(pool, rng, null).slice(0, 30-an.length);
+    return {pool: an.concat(pool), deck: an.concat(rest)};
+  }
   const pool=[];
   const okR = boss.tier===1 ? ['C','U'] : boss.tier===2 ? ['C','U','R'] : ['C','U','R','L'];
   AN.CARDS.forEach(d=>{ if((d.attr.includes(boss.attr) || d.attr.length===0) && okR.includes(d.rarity)){ const k=d.rarity==='L'?1:2; for(let i=0;i<k;i++) pool.push(d); } });
@@ -2076,7 +2095,7 @@ function renderTitle(){
    +'<button id="btnOnline">オンライン対戦（部屋コード）</button>'
    +(loadOnline()?'<button id="btnOnlineResume">オンライン対戦を再開（部屋 '+esc(loadOnline().code)+'）</button>':'')
    +'<button id="btnCodex">カードリスト（図鑑）</button>'
-   +'</div><div class="sub" style="margin-top:28px;font-size:11px">v2.12 — CPU戦・'+AN.CARDS.length+'種プール</div></div>';
+   +'</div><div class="sub" style="margin-top:28px;font-size:11px">v2.13 — CPU戦・'+AN.CARDS.length+'種プール</div></div>';
   s.querySelector('#btnNew').onclick=()=>show('setup');
   s.querySelector('#btnCodex').onclick=()=>show('codex');
   s.querySelector('#btnOnline').onclick=()=>show('lobby');
@@ -2107,7 +2126,7 @@ function newSeries(){
   let mains=[null, AN.AI.bestMain(pools[1])];
   let boss=null;
   let bd=null;
-  if(setup.boss){ boss=AN.BOSSES.find(b=>b.key===setup.boss); bd=AN.AI.bossDeck(boss, rng); pools[1]=bd.pool; mains[1]=boss.attr; }
+  if(setup.boss){ boss=AN.BOSSES.find(b=>b.key===setup.boss); bd=AN.AI.bossDeck(boss, rng); pools[1]=bd.pool; mains[1]=boss.attr||null; }
   series={seed, format:boss?1:setup.format, level:boss?3:setup.level, wins:[0,0], gameNo:1, pools, decks:[[],[]], nextFirst:null, mains, boss:boss?boss.key:null};
   series.decks[1]= boss ? indicesFor(pools[1], bd.deck) : indicesFor(pools[1], AN.AI.autoDeck(pools[1],rng,mains[1]));
   save(); show('draft');
@@ -2183,7 +2202,7 @@ function startGame(){
   const first = series.nextFirst==null ? null : series.nextFirst;
   const boss=series.boss? AN.BOSSES.find(b=>b.key===series.boss) : null;
   game=new AN.Game({seed:series.seed+':g'+series.gameNo, decks, names:['あなた', boss?boss.name:'CPU'], first, mains:series.mains||[null,null], choosers:[null, AN.AI.chooser(series.level)],
-    lifes: boss?[0,boss.life]:null, leaders: boss?[null,boss.leader]:null, energyBonus: boss?[0,boss.energy]:null});
+    lifes: boss?[0,boss.life]:null, bossRules: boss&&boss.special==='anomaly'?[null,{chaos:true}]:null, leaders: boss?[null,boss.leader]:null, energyBonus: boss?[0,boss.energy]:null});
   ui.attackFrom=null; evSeen=0; ui.mullSel=new Set();
   game.mulligan(game.players[1], AN.AI.mullPick(game,1));
   show('battle'); scheduleCpu();
@@ -2240,7 +2259,7 @@ function renderBattle(){
     const free=p.energy;
     let chips='<div class="energyrow">'; for(let i=0;i<p.energyMax;i++) chips+='<div class="chip '+(i<free?'':'tapped')+'"></div>'; chips+='</div>';
     const LL=game.leaderDef(p);
-    return '<div class="pbar"><div class="life '+(top&&targets.includes('player')?'target':'')+'" id="life'+p.i+'">'+p.life+'</div><div class="nm">'+p.name+(LL?'<div style="font-size:10px;color:'+AN.ATTRS[p.main].c+';font-weight:400">'+AN.ATTRS[p.main].n+' ・ '+esc(LL.name)+(p.abilityUsed?'（使用済）':'')+' ・ '+mechTxt(p)+'</div>':'')+'</div>'
+    return '<div class="pbar"><div class="life '+(top&&targets.includes('player')?'target':'')+'" id="life'+p.i+'">'+p.life+'</div><div class="nm">'+p.name+(LL?'<div style="font-size:10px;color:'+(p.main?AN.ATTRS[p.main].c:'#C58CFF')+';font-weight:400">'+(p.main?AN.ATTRS[p.main].n:'変異')+' ・ '+esc(LL.name)+(p.abilityUsed?'（使用済）':'')+' ・ '+mechTxt(p)+'</div>':'')+'</div>'
       +'<div class="st"><span>手札 <b>'+p.hand.length+'</b></span><span>山札 <b>'+p.deck.length+'</b></span></div>'
       +'<div class="st"><span>墓地 <b>'+p.grave.length+'</b></span><span>エナジー <b>'+free+'/'+p.energyMax+'</b></span></div>'+chips+'</div>';
   };
@@ -2328,7 +2347,7 @@ function renderBoss(){
   const s=screenEl('boss'); const prog=bossProgress();
   s.innerHTML='<div class="topbar"><button class="ghost" id="back">←</button><div class="t">ボスに挑戦</div></div><div class="scroll wrap">'
    +'<div class="sub" style="line-height:1.7;margin-bottom:12px">いつもどおり90枚を受け取ってデッキを組み、強化されたボスと1本勝負。倒すと次のボスが解放されます。ボスは全カードから選んだ強いデッキを使います。</div>'
-   +AN.BOSSES.map((b,i)=>{ const open=i<=prog; const cleared=i<prog; return '<div class="bosscard'+(open?'':' locked')+'" style="--ac:'+AN.ATTRS[b.attr].c+'"><div class="bn">'+(i+1)+'. '+esc(b.name)+(cleared?' <span class="clr">撃破済</span>':'')+'</div><div class="sub">'+(open?esc(b.desc):'前のボスを倒すと解放')+'</div>'+(open?'<button class="primary" data-b="'+b.key+'">挑戦する</button>':'')+'</div>'; }).join('')
+   +AN.BOSSES.map((b,i)=>{ const open=i<=prog; const cleared=i<prog; return '<div class="bosscard'+(open?'':' locked')+'" style="--ac:'+(b.attr?AN.ATTRS[b.attr].c:'#C58CFF')+'"><div class="bn">'+(i+1)+'. '+esc(b.name)+(cleared?' <span class="clr">撃破済</span>':'')+'</div><div class="sub">'+(open?esc(b.desc):'前のボスを倒すと解放')+'</div>'+(open?'<button class="primary" data-b="'+b.key+'">挑戦する</button>':'')+'</div>'; }).join('')
    +'</div>';
   s.querySelector('#back').onclick=()=>show('title');
   s.querySelectorAll('button[data-b]').forEach(bt=>bt.onclick=()=>{ setup.boss=bt.dataset.b; setup.seed=''; newSeries(); setup.boss=null; });
@@ -2383,6 +2402,7 @@ function showLog(){
 }
 function finishGame(){
   if(!game||game.winner==null||ui.screen!=='battle') return;
+  revealQ.length=0; document.querySelectorAll('.reveal').forEach(e=>e.remove()); revealing=false;
   const w=game.winner; series.lastWinner=w; series.lastTurns=game.turn; series.nextFirst=1-w; // 敗者が先攻
   if(series.online){ series.gameNo=series.playingNo; ui.screen='result'; onlineGameOver(w); }
   else { series.wins[w]++; save(); }

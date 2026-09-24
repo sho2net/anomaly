@@ -143,6 +143,37 @@ input[type=text]{background:var(--panel);border:1px solid var(--line);color:var(
 .bosscard .clr{font-size:11px;color:#7be0b0;margin-left:6px}
 .bosscard button{margin-top:8px;width:100%}
 .bosscard.locked{opacity:.45}
+.advcolors{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.advcolors button{display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 2px;border-bottom:3px solid var(--ac)}
+.advcolors .ico svg,.advnodes .ico svg{width:30px;height:30px;color:var(--ac,#C58CFF)}
+.advcolors small{font-size:9px;color:var(--muted)}
+.advhead{padding:10px 14px;background:linear-gradient(90deg,color-mix(in srgb,var(--ac) 30%,transparent),transparent);border-bottom:1px solid var(--line)}
+.advhead .an{font-weight:700;font-size:15px}
+.advhead .st{font-size:13px;color:#f28f8f;margin-top:2px}
+.advhead .st .lost{color:var(--muted)}
+.advhead .buff{font-size:11px;color:var(--muted);margin-top:2px}
+.advprog{display:flex;align-items:center;gap:6px;justify-content:center;margin:6px 0 4px}
+.advprog span{padding:4px 10px;border-radius:8px;background:var(--panel);border:1px solid var(--ac);color:var(--muted);font-size:13px}
+.advprog span.now{background:var(--ac);color:#fff;font-weight:700}
+.advprog span.done{opacity:.4;text-decoration:line-through}
+.advprog i{color:var(--muted);font-style:normal}
+.advnodes{display:flex;flex-direction:column;gap:8px}
+.advnodes button{display:grid;grid-template-columns:40px 1fr;grid-template-rows:auto auto;column-gap:10px;text-align:left;padding:12px;background:var(--panel);align-items:center}
+.advnodes .ico{grid-row:span 2;display:flex;align-items:center;justify-content:center}
+.advnodes .ico svg{color:var(--anom3)}
+.advnodes small{color:var(--muted);font-size:11px}
+.advfoe{display:flex;gap:12px;align-items:center;text-align:left;background:var(--panel);border-radius:12px;padding:12px;border-left:4px solid var(--ac);margin:8px 0 14px}
+.advfoe .ico svg{width:52px;height:52px;color:var(--ac)}
+.advfoe .fn{font-weight:700;font-size:17px}
+.ante{display:flex;align-items:center;justify-content:center;gap:14px}
+.ante .vs{font-size:24px;color:var(--muted)}
+.advscene{display:flex;gap:12px;align-items:center;background:var(--panel);border-radius:12px;padding:12px;margin:8px 0 12px;text-align:left}
+.advscene .ico svg{width:44px;height:44px;color:var(--anom3)}
+.advscene.big{flex-direction:column;text-align:center;padding:22px 14px}
+.advscene.big .ico svg{width:110px;height:110px;color:#C58CFF;filter:drop-shadow(0 0 18px rgba(197,140,255,.5))}
+.advscene .et{font-weight:700;font-size:18px}
+.evmsg{margin:10px 0;font-size:15px}
+.pcard .price{position:absolute;left:0;right:0;bottom:-8px;text-align:center;font-size:11px;font-family:var(--disp);color:#FFD86B;text-shadow:0 1px 2px #000}
 .helpbtn{padding:4px 10px;font-family:var(--disp);font-size:13px;border-radius:8px}
 .overlay.center .sheet{max-height:94%}
 .sheet .btns{display:flex;gap:8px;margin-top:14px}
@@ -265,7 +296,7 @@ K('F06','火吹き','flare',2,'C',[],[ef('etb','ping',{n:1})],{i:'flame'}),
 K('F07','鍛冶の見習い','flare',2,'C',[],[ef('etb','buff',{n:2})],{i:'axe'}),
 P('F08','火の玉','flare',2,'C',[ef('cast','dmg',{n:2,scale:'combo',k:1,max:4})],{i:'fireball'}),
 P('F09','炎の軍勢','flare',3,'C',[ef('cast','tokens',{n:2,tok:'flare'}),ef('cast','tokens',{n:1,tok:'flare',req:{combo:2}})],{i:'bonfire'}),
-K('F10','双剣の傭兵','flare',3,'C',['haste'],[],{i:'sword'}),
+K('F10','双剣の傭兵','flare',3,'C',['haste','double'],[],{i:'sword',st:[2,2]}),
 P('F11','火炎放射','flare',3,'C',[ef('cast','dmgAll',{n:1}),ef('cast','damage',{n:2,req:{combo:1}})],{i:'sun'}),
 K('F12','赤熱の斧使い','flare',3,'C',[],[ef('etb','dmg',{n:2})],{i:'axe'}),
 K('F13','爆竹の精','flare',2,'C',[],[ef('death','randomDmg',{n:2})],{i:'spark'}),
@@ -292,7 +323,7 @@ K('F32','紅蓮の申し子','flare',1,'L',['haste'],[ef('play','pumpSelf',{n:1}
 K('T01','水の精','tide',1,'C',[],[],{i:'drop'}),
 K('T02','泡の見習い','tide',1,'C',[],[ef('spell','pumpSelf',{n:1})],{i:'bubbles'}),
 K('T03','潮読みの学徒','tide',2,'C',[],[ef('etb','boostHand',{n:1})],{i:'scroll'}),
-P('T04','知識の泉','tide',2,'C',[ef('cast','draw',{n:2})],{i:'book'}),
+P('T04','知識の泉','tide',3,'C',[ef('cast','draw',{n:2})],{i:'book',sb:'cost'}),
 P('T05','凍てつく手','tide',1,'C',[ef('cast','freeze',{})],{i:'hand'}),
 P('T06','引き波','tide',2,'C',[ef('cast','bounce',{})],{i:'undertow'}),
 K('T07','霧の忍び','tide',2,'C',['unblockable'],[],{i:'ninja'}),
@@ -328,30 +359,30 @@ K('G03','苗木の妖精','grow',2,'C',[],[ef('etb','tokens',{n:1,tok:'grow'})],
 P('G04','芽吹き','grow',1,'C',[ef('cast','energyNow',{n:2})],{i:'bud'}),
 K('G05','樹人の見習い','grow',3,'C',[],[ef('turnstart','pumpSelf',{n:1})],{i:'treant'}),
 K('G06','突進猪','grow',3,'C',['breakthrough'],[],{i:'boar'}),
-P('G07','大地の恵み','grow',2,'C',[ef('cast','ramp',{n:1})],{i:'seed'}),
+P('G07','大地の恵み','grow',2,'C',[ef('cast','ramp',{n:1}),ef('cast','draw',{n:1})],{i:'seed'}),
 P('G08','格闘','grow',2,'C',[ef('cast','fight',{n:0})],{i:'fist'}),
 K('G09','苔熊','grow',4,'C',[],[ef('etb','pumpSelf',{n:2,req:{awaken:1}})],{i:'bear'}),
 K('G10','蔦の巨人','grow',5,'C',['breakthrough'],[ef('etb','tokens',{n:1,tok:'grow',req:{awaken:1}})],{i:'vine'}),
 P('G11','成長','grow',1,'C',[ef('cast','pumpTarget',{n:2})],{i:'arrowup'}),
-P('G12','実り','grow',3,'C',[ef('cast','draw',{n:1}),ef('cast','ramp',{n:1})],{i:'wheat'}),
+P('G12','実り','grow',3,'C',[ef('cast','draw',{n:2}),ef('cast','ramp',{n:1})],{i:'wheat'}),
 K('G13','森の番人','grow',4,'C',[],[ef('ability','pumpSelf',{n:1})],{i:'shieldleaf'}),
 K('G14','大角鹿','grow',4,'C',[],[ef('atk','pumpSelf',{n:1})],{i:'antler'}),
 P('G15','森の呼び声','grow',2,'C',[ef('cast','tutor',{})],{i:'leaf'}),
 K('G16','群れの長','grow',3,'C',[],[ef('summon','pumpSelf',{n:1})],{i:'wolf'}),
 K('G17','大森林の賢樹','grow',5,'U',[],[ef('etb','ramp',{n:1}),ef('etb','draw',{n:1})],{i:'treant'}),
-P('G18','自然の怒り','grow',4,'U',[ef('cast','fight',{n:3})],{i:'cloudbolt'}),
+P('G18','自然の怒り','grow',3,'U',[ef('cast','fight',{n:3})],{i:'cloudbolt'}),
 P('G19','巨大化','grow',2,'U',[ef('cast','pumpTarget',{n:3})],{i:'giant'}),
 K('G20','樹海の巨獣','grow',7,'U',['breakthrough'],[ef('etb','pumpSelf',{n:2,req:{awaken:1}})],{i:'claw'}),
 P('G21','恵みの雨','grow',4,'U',[ef('cast','ramp',{n:2}),ef('cast','heal',{n:3})],{i:'drop'}),
 P('G22','大群','grow',4,'U',[ef('cast','tokens',{n:3,tok:'grow'})],{i:'wolf'}),
-P('G23','進化','grow',2,'U',[ef('cast','evolve',{n:2})],{i:'bud'}),
+P('G23','進化','grow',3,'U',[ef('cast','evolve',{n:2})],{i:'bud'}),
 K('G24','森の長老','grow',5,'U',[],[ef('static','aura',{n:1,attr:'grow'})],{i:'elder'}),
 K('G25','世界樹の芽','grow',4,'U',[],[ef('turnstart','ramp',{n:1})],{i:'sprout'}),
 P('G26','大進化','grow',5,'R',[ef('cast','evolve',{n:1,all:true})],{i:'tusk'}),
 K('G27','太古の巨獣','grow',8,'R',['breakthrough'],[ef('etb','dmgAll',{n:2,req:{awaken:1}})],{i:'tusk'}),
-K('G28','翠竜','grow',6,'R',[],[ef('etb','destroy',{req:{awaken:1}})],{i:'dragon'}),
+K('G28','翠竜','grow',6,'R',[],[ef('etb','destroy',{req:{awaken:1}})],{i:'dragon',st:[6,6]}),
 K('G29','森の王','grow',6,'R',[],[ef('etb','buffAll',{n:2}),ef('static','aura',{n:1})],{i:'crown'}),
-K('G30','大地の心臓','grow',3,'R',[],[ef('turnstart','discountHand',{n:1,req:{awaken:1}})],{i:'heart'}),
+K('G30','大地の心臓','grow',3,'R',[],[ef('turnstart','discountHand',{n:1,req:{awaken:1}})],{i:'heart',st:[2,4]}),
 K('G31','大地母神ガイア','grow',9,'L',['breakthrough'],[ef('etb','pumpAll',{n:3})],{i:'goddess'}),
 K('G32','森羅の守り手','grow',5,'L',[],[ef('etb','pumpAll',{n:1,req:{awaken:1}}),ef('etb','grantAll',{kw:'breakthrough',req:{awaken:1}})],{i:'oldtree'}),
 // ---------- 光：祈り（守護コントロール／小型の群れ）----------
@@ -373,7 +404,7 @@ K('R15','光の司祭','ray',3,'C',[],[ef('etb','heal',{n:2}),ef('etb','draw',{n
 K('R16','巡礼者','ray',2,'C',[],[ef('etb','heal',{n:1}),ef('etb','pumpSelf',{n:2,req:{pray:5}})],{i:'lantern'}),
 K('R17','聖騎士団長','ray',5,'U',[],[ef('static','aura',{n:1,attr:'ray'})],{i:'banner'}),
 P('R18','天の裁き','ray',6,'U',[ef('cast','dmgAll',{n:1}),ef('cast','destroyAll',{damaged:true})],{i:'cloudbolt'}),
-K('R19','守護天使','ray',4,'U',['blocker'],[ef('etb','heal',{n:3})],{i:'angel'}),
+K('R19','守護天使','ray',5,'U',['blocker'],[ef('etb','heal',{n:4})],{i:'angel'}),
 P('R20','聖なる盾','ray',1,'U',[ef('cast','grant',{kw:'armor'})],{i:'shield'}),
 P('R21','光の軍旗','ray',4,'U',[ef('cast','grantAll',{kw:'armor'})],{i:'banner'}),
 P('R22','天使の軍勢','ray',4,'U',[ef('cast','tokens',{n:2,tok:'ray'}),ef('cast','heal',{n:2})],{i:'wings'}),
@@ -386,7 +417,7 @@ P('R28','審判の光','ray',4,'R',[ef('cast','dmgAll',{n:0,scale:'pray',k:1,max
 K('R29','聖域の主','ray',5,'R',[],[ef('heal','pumpAll',{n:1})],{i:'halo'}),
 K('R30','光の預言者','ray',3,'R',[],[ef('etb','scry',{n:3}),ef('etb','heal',{n:2})],{i:'eye'}),
 K('R31','天光の女王セラフィナ','ray',7,'L',['blocker','armor'],[ef('turnstart','heal',{n:3}),ef('static','aura',{n:1})],{i:'crown'}),
-K('R32','聖杯の守護者','ray',3,'L',[],[ef('etb','damage',{n:10,req:{pray:10}})],{i:'chalice'}),
+K('R32','聖杯の守護者','ray',3,'L',[],[ef('etb','damage',{n:10,req:{pray:10}})],{i:'chalice',st:[2,4]}),
 // ---------- 闇：供物（生贄・蘇生／手札破壊）----------
 K('V01','骸の兵','void',1,'C',[],[ef('death','damage',{n:1})],{i:'skull'}),
 K('V02','影の狩人','void',2,'C',[],[ef('etb','pumpSelf',{n:2,req:{souls:2}})],{i:'bow'}),
@@ -430,17 +461,17 @@ K('N06','冒険者','none',3,'C',[],[ef('etb','draw',{n:1})],{i:'runner'}),
 K('N07','治療師','none',2,'C',[],[ef('etb','heal',{n:2})],{i:'heart'}),
 K('N08','斥候','none',1,'C',[],[ef('etb','scry',{n:2})],{i:'eye'}),
 P('N09','罠','none',2,'C',[ef('cast','dmg',{n:3})],{i:'spider'}),
-P('N10','大砲','none',4,'C',[ef('cast','dmg',{n:4})],{i:'meteor'}),
-P('N11','交易','none',3,'C',[ef('cast','draw',{n:2})],{i:'book'}),
+P('N10','大砲','none',4,'C',[ef('cast','dmg',{n:4}),ef('cast','damage',{n:2})],{i:'meteor'}),
+P('N11','交易','none',3,'C',[ef('cast','draw',{n:2}),ef('cast','heal',{n:2})],{i:'book'}),
 P('N12','補給','none',2,'C',[ef('cast','heal',{n:4})],{i:'potion'}),
 P('N13','民兵の召集','none',3,'C',[ef('cast','tokens',{n:2,tok:'none'})],{i:'banner'}),
 K('N14','忠犬','none',1,'C',[],[ef('death','draw',{n:1})],{i:'dog'}),
 K('N15','石像','none',6,'C',[],[],{i:'giant'}),
 K('N16','旅の魔術師','none',3,'U',[],[ef('etb','transformHand',{n:1})],{i:'staff'}),
 K('N17','傭兵隊長','none',4,'U',[],[ef('static','aura',{n:1})],{i:'helm'}),
-P('N18','一騎当千','none',3,'U',[ef('cast','fight',{n:3})],{i:'fist'}),
+P('N18','一騎当千','none',4,'U',[ef('cast','fight',{n:3})],{i:'fist'}),
 P('N19','冒険の誘い','none',2,'U',[ef('cast','discover',{})],{i:'scroll'}),
-P('N20','進化の秘薬','none',3,'U',[ef('cast','evolve',{n:1})],{i:'potion'}),
+P('N20','進化の秘薬','none',2,'U',[ef('cast','evolve',{n:1})],{i:'potion'}),
 K('N21','英雄','none',5,'R',[],[ef('etb','pumpAll',{n:1})],{i:'crown'}),
 K('N22','古代の巨像','none',8,'R',[],[],{i:'tusk',costFn:'allies'}),
 K('N23','軍師','none',2,'U',[],[ef('etb','addCard',{card:'plan',n:1})],{i:'scroll'}),
@@ -482,11 +513,12 @@ K('T36','氷壁の番人','tide',4,'U',['blocker'],[ef('etb','freeze',{})],{i:'s
     d.effects.forEach(x=>{ if(x.e==='lifecost'||x.e==='selfDestroy'){ total+=2; return; } if(x.req||x.t==='death') total-=0.5; else total-=1.5; });
     if(d.attr[0]==='tide' && d.sb) total+=1;
     if(d.attr[0]==='flare') total-=1;
+    if(!d.effects.length && !d.kw.length) total+=1;
     if(d.costFn) total=2*d.cost+1;
     total=Math.max(2,Math.round(total));
     let r=d.attr.length?RATIO[d.attr[0]]:0.5; if(d.kw.includes('blocker')) r=0.3;
     let a=Math.max(1,Math.min(total-1,Math.round(total*r-0.01))); let h=total-a;
-    if(d.attr[0]==='grow' && d.cost>=5) h+=1;
+    if(d.attr[0]==='grow' && d.cost>=5 && !d.effects.length) h+=1;
     if(d.attr[0]==='ray' && !d.kw.includes('blocker')) h+=1;
     d.power=a; d.hp=h;
   });
@@ -1075,6 +1107,7 @@ class Game {
     if(opts.leaders) this.players.forEach((p,i)=>{ if(opts.leaders[i]) p.leaderOverride=AN.LEADER_EX[opts.leaders[i]]; });
     if(opts.energyBonus) this.players.forEach((p,i)=>{ p.energyMax=opts.energyBonus[i]||0; });
     if(opts.bossRules) this.players.forEach((p,i)=>{ p.bossRules=opts.bossRules[i]||null; });
+    this.fieldBuff=opts.fieldBuff||null;
     this.phase = 'main'; this.queue=[]; this.pending=null; this.winner=null; this.log=[]; this.events=[];
     this.attackCtx=null;
     for(const p of this.players) this.draw(p, HAND_START + (p.i===this.first?0:1), true);
@@ -1112,6 +1145,7 @@ class Game {
     if(cr.roll) base = key==='power'? cr.roll[0] : cr.roll[1];
     if(cr.c.d.dyn==='hand' && owner) base = owner.hand.length;
     let p = (cr.fixed!=null ? cr.fixed : base + cr.pump) * (cr.mult||1) + cr.tmp;
+    if(this.fieldBuff && cr.c.d.attr.includes(this.fieldBuff.attr)) p+=this.fieldBuff.n;
     cr.equips.forEach(e=>p+=e.d.equip.power);
     if(owner) owner.field.forEach(o=>{ if(o!==cr) this.effs(o).forEach(x=>{ if(x.t==='static'&&x.e==='aura'&&(!x.attr||cr.c.d.attr.includes(x.attr))) p+=x.n; }); });
     return Math.max(0,p);
@@ -2076,7 +2110,7 @@ function show(name){ ui.screen=name; render(); }
 function render(){
   closeSheet();
   app.innerHTML='';
-  const fn={boss:renderBoss, title:renderTitle, setup:renderSetup, draft:renderDraft, battle:renderBattle, codex:renderCodex, result:renderResult, lobby:renderLobby, wait:renderWait}[ui.screen];
+  const fn={advStart:renderAdvStart, advMap:renderAdvMap, advAnte:renderAdvAnte, advReward:renderAdvReward, advShop:renderAdvShop, advInn:renderAdvInn, advEvent:renderAdvEvent, advDeck:renderAdvDeck, boss:renderBoss, title:renderTitle, setup:renderSetup, draft:renderDraft, battle:renderBattle, codex:renderCodex, result:renderResult, lobby:renderLobby, wait:renderWait}[ui.screen];
   fn();
 }
 function screenEl(id){ closeSheet(); app.innerHTML=''; const s=document.createElement('div'); s.className='screen on'; s.id=id; app.appendChild(s); return s; }
@@ -2091,15 +2125,17 @@ function renderTitle(){
    +'<div class="menu">'
    +(saved?'<button class="primary" id="btnResume">続きから（第'+saved.gameNo+'ゲーム・'+saved.wins[0]+'–'+saved.wins[1]+'）</button>':'')
    +'<button class="'+(saved?'':'primary')+'" id="btnNew">新しい対戦を始める</button>'
+   +'<button id="btnAdv">冒険モード（1人用）</button>'
    +'<button id="btnBoss">ボスに挑戦</button>'
    +'<button id="btnOnline">オンライン対戦（部屋コード）</button>'
    +(loadOnline()?'<button id="btnOnlineResume">オンライン対戦を再開（部屋 '+esc(loadOnline().code)+'）</button>':'')
    +'<button id="btnCodex">カードリスト（図鑑）</button>'
-   +'</div><div class="sub" style="margin-top:28px;font-size:11px">v2.13 — CPU戦・'+AN.CARDS.length+'種プール</div></div>';
+   +'</div><div class="sub" style="margin-top:28px;font-size:11px">v3.0 — CPU戦・'+AN.CARDS.length+'種プール</div></div>';
   s.querySelector('#btnNew').onclick=()=>show('setup');
   s.querySelector('#btnCodex').onclick=()=>show('codex');
   s.querySelector('#btnOnline').onclick=()=>show('lobby');
   s.querySelector('#btnBoss').onclick=()=>show('boss');
+  s.querySelector('#btnAdv').onclick=()=>show('advStart');
   const ro=s.querySelector('#btnOnlineResume'); if(ro) ro.onclick=()=>onlineResume();
   if(saved) s.querySelector('#btnResume').onclick=()=>{ series=saved; if(series.decks[0]&&series.decks[0].length===AN.CONST.DECK_SIZE) startGame(); else show('draft'); };
 }
@@ -2403,6 +2439,7 @@ function showLog(){
 function finishGame(){
   if(!game||game.winner==null||ui.screen!=='battle') return;
   revealQ.length=0; document.querySelectorAll('.reveal').forEach(e=>e.remove()); revealing=false;
+  if(series && series.adv){ advFinish(game.winner); return; }
   const w=game.winner; series.lastWinner=w; series.lastTurns=game.turn; series.nextFirst=1-w; // 敗者が先攻
   if(series.online){ series.gameNo=series.playingNo; ui.screen='result'; onlineGameOver(w); }
   else { series.wins[w]++; save(); }
@@ -2559,6 +2596,291 @@ function onlineStartGame(n, gd){
 }
 function onlineSend(a){ const o=series.online; getNet().pushAction(o.code, series.gameNo, Object.assign({p:o.slot, ts:Date.now()}, a)); }
 async function onlineGameOver(w){ const o=series.online; const n=series.playingNo; const gd=(room.games||{})[n]||{}; if(gd.result==null) await getNet().set(o.code,'games/'+n+'/result', w); }
+
+// ================= 冒険モード（v3.0）=================
+// 開始色を選ぶ → 自分のコレクション → 3つの地域（各5階＋地域ボス）→ 最終ボス。
+// 戦闘は毎回カードを1枚ずつ賭ける（アンティ）。地域ごとにその属性のクリーチャーが+1/+1。
+const ADV_LS='anomaly_adv_v1';
+const ADV_AREA={
+  flare:{ name:'灼熱の火山', icon:'bonfire', enemies:['火の民の戦士','溶岩の術師','炎の狂信者','灰の傭兵'], elite:'炎獄の騎士', boss:'火山の主イグナ', bossLeader:'inferno' },
+  tide: { name:'深き海底神殿', icon:'wave', enemies:['潮の巫女','深海の斥候','渦の術師','泡の番人'], elite:'海淵の守護者', boss:'海の支配者ネレア', bossLeader:'boss_tide' },
+  grow: { name:'太古の大森林', icon:'oldtree', enemies:['森の狩人','樹人の兵','獣使い','苔の賢者'], elite:'大角の王', boss:'森の古王ガイオス', bossLeader:'bloom' },
+  ray:  { name:'天空の聖都', icon:'cathedral', enemies:['聖堂の衛士','巡礼の僧','光の射手','天使の見習い'], elite:'聖騎士団長', boss:'天光の主セラフ', bossLeader:'boss_ray' },
+  void: { name:'冥府の墓所', icon:'tomb', enemies:['墓守','屍術師','影の刺客','骨の兵'], elite:'死の騎士', boss:'冥王ハーデン', bossLeader:'boss_void' },
+};
+const ADV_PRICE={C:25,U:45,R:90,L:160,A:140};
+let advRun=null;
+function advSer(list){ return list.map(d=>d.anomaly? d : d.id); }
+function advDeser(list){ return list.map(x=> typeof x==='string' ? (AN.CARD_BY_ID[x]||AN.SPECIAL[x]) : x).filter(Boolean); }
+function advSave(){ if(!advRun) return; try{ const r=Object.assign({},advRun,{col:advSer(advRun.col)}); if(r.pending) r.pending=Object.assign({},r.pending,{en:Object.assign({},r.pending.en,{deck:advSer(r.pending.en.deck)}), enAnte:advSer([r.pending.enAnte])[0]}); if(r.shop) r.shop=r.shop.map(o=>Object.assign({},o,{d:advSer([o.d])[0]})); if(r.picks) r.picks=advSer(r.picks); localStorage.setItem(ADV_LS, JSON.stringify(r)); }catch(e){} }
+function advLoad(){ try{ const r=JSON.parse(localStorage.getItem(ADV_LS)); if(!r) return null; r.col=advDeser(r.col); if(r.pending){ r.pending.en.deck=advDeser(r.pending.en.deck); r.pending.enAnte=advDeser([r.pending.enAnte])[0]; } if(r.shop) r.shop=r.shop.map(o=>Object.assign(o,{d:advDeser([o.d])[0]})); if(r.picks) r.picks=advDeser(r.picks); return r; }catch(e){ return null; } }
+function advClear(){ try{ localStorage.removeItem(ADV_LS); }catch(e){} }
+function advRng(tag){ advRun.counter=(advRun.counter||0)+1; return AN.makeRng(advRun.seed+':'+tag+':'+advRun.counter); }
+function advDeckDefs(){ return advRun.deck.map(i=>advRun.col[i]); }
+function advAttrs(defs){ const s=new Set(); defs.forEach(d=>{ if(!d.anomaly) d.attr.forEach(a=>s.add(a)); }); return [...s]; }
+function advMain(defs){ const c={}; defs.forEach(d=>{ if(!d.anomaly) d.attr.forEach(a=>c[a]=(c[a]||0)+1); }); let best=null,bv=-1; Object.keys(c).forEach(a=>{ if(c[a]>bv){bv=c[a];best=a;} }); return best||AN.ATTR_ORDER[0]; }
+function advRemoveCol(idx){ advRun.col.splice(idx,1); advRun.deck=advRun.deck.filter(i=>i!==idx).map(i=>i>idx?i-1:i); }
+function advAutoDeck(){
+  const col=advRun.col; const score={};
+  col.forEach(d=>{ if(!d.anomaly) d.attr.forEach(a=>score[a]=(score[a]||0)+AN.cardValue(d)); });
+  const two=Object.keys(score).sort((a,b)=>score[b]-score[a]).slice(0,2);
+  const ok=d=>d.anomaly||d.attr.length===0||d.attr.every(a=>two.includes(a));
+  const idx=col.map((d,i)=>i).filter(i=>ok(col[i])).sort((a,b)=>{ const va=AN.cardValue(col[a])/Math.max(1,col[a].cost)*(col[a].cost<=4?1.15:1)+(col[a].anomaly?2:0), vb=AN.cardValue(col[b])/Math.max(1,col[b].cost)*(col[b].cost<=4?1.15:1)+(col[b].anomaly?2:0); return vb-va; });
+  advRun.deck=idx.slice(0,30);
+  if(advRun.deck.length<30){ col.forEach((d,i)=>{ if(advRun.deck.length<30 && !advRun.deck.includes(i)) advRun.deck.push(i); }); }
+}
+function advEnsureDeck(){
+  // コレクションが30枚未満なら、無属性コモンで補充（救済）
+  while(advRun.col.length<30){ const cs=AN.CARDS.filter(d=>d.attr.length===0&&d.rarity==='C'); advRun.col.push(cs[Math.floor(Math.random()*cs.length)]); }
+  if(advRun.deck.length!==30 || advAttrs(advDeckDefs()).length>2) advAutoDeck();
+}
+function advPool(attr, rars){ return AN.CARDS.filter(d=>(attr? d.attr.includes(attr) : d.attr.length===0) && rars.includes(d.rarity)); }
+function advNewRun(color){
+  const seed='adv'+Math.floor(Math.random()*1e9).toString(36);
+  advRun={ v:1, seed, counter:0, gold:60, hearts:3, maxHearts:3, col:[], deck:[], start:color, areas:[], areaIdx:0, floor:0, choices:null, wins:0, losses:0, stage:'map' };
+  const rng=advRng('start');
+  const others=rng.shuffle(AN.ATTR_ORDER.filter(a=>a!==color));
+  advRun.areas=[others[0],others[1],others[2]];
+  const cc=advPool(color,['C']), cu=advPool(color,['U']), nc=advPool(null,['C']);
+  for(let i=0;i<18;i++) advRun.col.push(rng.pick(cc));
+  for(let i=0;i<4;i++) advRun.col.push(rng.pick(cu));
+  for(let i=0;i<10;i++) advRun.col.push(rng.pick(nc));
+  advRun.col.push(AN.makeAnomaly(rng, 1, null));
+  advRun.col.push(AN.makeAnomaly(rng, 2, null));
+  advAutoDeck(); advGenChoices(); advSave();
+}
+function advArea(){ return advRun.areaIdx<3 ? advRun.areas[advRun.areaIdx] : null; }
+function advGenChoices(){
+  const rng=advRng('choice'); const f=advRun.floor;
+  if(advRun.areaIdx>=3){ advRun.choices=['final']; return; }
+  if(f>=5){ advRun.choices=['boss']; return; }
+  const bag=['battle','battle','battle','elite','shop','inn','event','event'];
+  const n= f===0 ? 2 : 3; const out=['battle'];
+  if(f===0){ out.push(rng.pick(['event','shop','elite'])); advRun.choices=rng.shuffle(out); return; }
+  while(out.length<n){ const t=rng.pick(bag); if(t==='battle' && out.filter(x=>x==='battle').length>=2) continue; if(t!=='battle' && out.includes(t)) continue; out.push(t); }
+  advRun.choices=rng.shuffle(out);
+}
+const ADV_NODE={ battle:{n:'戦闘',i:'sword',d:'この地の住人と戦う。勝てば賭けたカードとゴールド。'}, elite:{n:'強敵',i:'helm',d:'手強い相手。勝てばカードを1枚選んで得られる。'}, shop:{n:'店',i:'barrel',d:'カードを買う・売る。'}, inn:{n:'宿',i:'lantern',d:'休んでハートを回復する。'}, event:{n:'謎の出来事',i:'eye',d:'何かが起きる。'}, boss:{n:'地域の主',i:'crown',d:'この地域の主。倒せば次の地域へ。'}, final:{n:'特異点',i:'anom1',d:'すべての歪みの源。'} };
+
+// ---------- 画面：開始 ----------
+function renderAdvStart(){
+  const s=screenEl('advStart'); const saved=advLoad();
+  s.innerHTML='<div class="topbar"><button class="ghost" id="back">←</button><div class="t">冒険モード</div></div><div class="scroll wrap">'
+   +'<div class="sub" style="line-height:1.8">1人用の冒険です。最初の色のカードを持って旅立ち、3つの地域を巡って最後の「特異点」を目指します。戦闘では毎回、お互いにカードを1枚賭けます（勝てば相手のカードを得て、負ければ自分のカードを失い、ハートが1つ減ります）。ハートが0になると冒険は終わりです。</div>'
+   +(saved?'<div class="menu"><button class="primary" id="cont">続きから（'+esc(ADV_AREA[saved.areas[Math.min(saved.areaIdx,2)]].name)+'・所持金'+saved.gold+'G・ハート'+saved.hearts+'）</button></div><div class="field-label" style="margin-top:20px">新しく始める（今の冒険は失われます）</div>':'<div class="field-label" style="margin-top:14px">最初の色を選ぶ</div>')
+   +'<div class="advcolors">'+AN.ATTR_ORDER.map(a=>'<button data-c="'+a+'" style="--ac:'+AN.ATTRS[a].c+'"><span class="ico">'+AN.iconSvg({i:ADV_AREA[a].icon})+'</span>'+AN.ATTRS[a].n+'<small>'+AN.ATTRS[a].k+'</small></button>').join('')+'</div></div>';
+  s.querySelector('#back').onclick=()=>show('title');
+  const c=s.querySelector('#cont'); if(c) c.onclick=()=>{ advRun=saved; show(advRun.stage==='ante'?'advAnte':'advMap'); };
+  s.querySelectorAll('.advcolors button').forEach(b=>b.onclick=()=>{ if(saved && !confirm('今の冒険を捨てて新しく始めますか？')) return; advNewRun(b.dataset.c); show('advMap'); });
+}
+function advHeader(){
+  const a=advArea(); const A=a?ADV_AREA[a]:null;
+  return '<div class="advhead" style="--ac:'+(a?AN.ATTRS[a].c:'#C58CFF')+'"><div class="an">'+(A?esc(A.name)+' ・ '+(advRun.floor<5?(advRun.floor+1)+'階':'主の間'):'特異点')+'</div><div class="st">♥'+'♥'.repeat(Math.max(0,advRun.hearts-1))+'<span class="lost">'+'♡'.repeat(advRun.maxHearts-advRun.hearts)+'</span>　'+advRun.gold+'G　所持'+advRun.col.length+'枚</div>'
+   +(a?'<div class="buff">この地では'+AN.ATTRS[a].n+'属性のクリーチャーは+1/+1</div>':'')+'</div>';
+}
+// ---------- 画面：地図（分かれ道） ----------
+function renderAdvMap(){
+  if(!advRun){ show('advStart'); return; }
+  advRun.stage='map'; if(!advRun.choices) advGenChoices(); advEnsureDeck(); advSave();
+  const s=screenEl('advMap');
+  const prog=[0,1,2].map(i=>'<span class="'+(i<advRun.areaIdx?'done':(i===advRun.areaIdx?'now':''))+'" style="--ac:'+AN.ATTRS[advRun.areas[i]].c+'">'+AN.ATTRS[advRun.areas[i]].n+'</span>').join('<i>›</i>')+'<i>›</i><span class="'+(advRun.areaIdx>=3?'now':'')+'" style="--ac:#C58CFF">？</span>';
+  s.innerHTML='<div class="topbar"><button class="ghost" id="back">←</button><div class="t">冒険</div><button class="ghost" id="deck">デッキ</button></div>'
+   +advHeader()+'<div class="scroll wrap"><div class="advprog">'+prog+'</div><div class="field-label">次に進む道を選んでください</div>'
+   +'<div class="advnodes">'+advRun.choices.map((t,i)=>{ const N=ADV_NODE[t]; return '<button data-i="'+i+'"><span class="ico">'+AN.iconSvg({i:N.i})+'</span><b>'+N.n+'</b><small>'+N.d+'</small></button>'; }).join('')+'</div>'
+   +'<div class="sub" style="margin-top:14px">デッキ：30枚・属性は2つまで（無属性とアノマリーは自由）。戦闘前でもいつでも組み替えられます。</div></div>';
+  s.querySelector('#back').onclick=()=>show('title');
+  s.querySelector('#deck').onclick=()=>show('advDeck');
+  s.querySelectorAll('.advnodes button').forEach(b=>b.onclick=()=>advGo(advRun.choices[+b.dataset.i]));
+}
+function advNext(){ advRun.floor++; advRun.choices=null; advRun.shop=null; advRun.event=null; advRun.picks=null; if(advRun.floor>5){ advRun.areaIdx++; advRun.floor=0; } advGenChoices(); advSave(); show('advMap'); }
+function advGo(t){
+  if(t==='battle'||t==='elite'||t==='boss'||t==='final') return advPrepBattle(t);
+  if(t==='shop'){ advMakeShop(); advRun.stage='shop'; advSave(); return show('advShop'); }
+  if(t==='inn'){ advRun.stage='inn'; advSave(); return show('advInn'); }
+  if(t==='event'){ advRun.event=advPickEvent(); advRun.stage='event'; advSave(); return show('advEvent'); }
+}
+// ---------- 敵 ----------
+function advMakeEnemy(kind){
+  const rng=advRng('enemy'); const ai=advRun.areaIdx; const a=advArea();
+  if(kind==='final'){ const b=AN.BOSSES.find(x=>x.key==='b6'); const bd=AN.AI.bossDeck(b,rng); return { name:b.name, attr:null, life:40, leader:null, energy:2, level:3, deck:bd.deck, final:true, kind }; }
+  const A=ADV_AREA[a];
+  const tiers={battle:[['C'],['C','U'],['C','U','R']], elite:[['C','U'],['C','U','R'],['C','U','R','L']], boss:[['C','U','R'],['C','U','R','L'],['C','U','R','L']]}[kind][ai];
+  let pool=[]; AN.CARDS.forEach(d=>{ if((d.attr.includes(a)||d.attr.length===0) && tiers.includes(d.rarity)) pool.push(d); });
+  pool=rng.shuffle(pool.concat(pool)).slice(0, 50);
+  const nAn = kind==='battle' ? (ai>=1?1:0) : kind==='elite' ? 1 : 2;
+  for(let i=0;i<nAn;i++) pool.unshift(kind==='boss'&&i===0 ? AN.makeLegend(rng, 700+i*3) : AN.makeAnomaly(rng, 701+i*3, null));
+  const deck=AN.AI.autoDeck(pool, rng, a);
+  while(deck.length<30) deck.push(rng.pick(pool));
+  const life = kind==='battle' ? 20+ai*3 : kind==='elite' ? 25+ai*3 : 30+ai*5;
+  return { name: kind==='boss'?A.boss:(kind==='elite'?A.elite:rng.pick(A.enemies)), attr:a, life, leader: kind==='boss'?A.bossLeader:null, energy: kind==='boss'&&ai>=2?1:0, level: kind==='battle'&&ai===0?2:3, deck, kind };
+}
+function advPrepBattle(kind){
+  const en=advMakeEnemy(kind); const rng=advRng('ante');
+  const k=rng.int(advRun.deck.length);
+  advRun.pending={ kind, en, myAnte: advRun.deck[k], enAnte: en.deck[rng.int(en.deck.length)] };
+  advRun.stage='ante'; advSave(); show('advAnte');
+}
+function renderAdvAnte(){
+  const P=advRun.pending; if(!P){ show('advMap'); return; }
+  const s=screenEl('advAnte'); const my=advRun.col[P.myAnte];
+  const a=P.en.attr;
+  s.innerHTML=advHeader()+'<div class="scroll wrap" style="text-align:center">'
+   +'<div class="advfoe" style="--ac:'+(a?AN.ATTRS[a].c:'#C58CFF')+'"><span class="ico">'+AN.iconSvg({i:P.kind==='boss'?'crown':(P.kind==='elite'?'helm':(P.en.final?'anom1':'soldier'))})+'</span><div><div class="fn">'+esc(P.en.name)+'</div><div class="sub">'+({battle:'',elite:'強敵 ・ ',boss:'地域の主 ・ ',final:'最終決戦 ・ '}[P.kind])+'ライフ'+P.en.life+(P.en.leader?' ・ 能力「'+esc(AN.LEADER_EX[P.en.leader].name)+'」':'')+(P.en.energy?' ・ 開始エナジー+'+P.en.energy:'')+'</div></div></div>'
+   +'<div class="field-label">賭けるカード</div><div class="ante"><div><div class="sub">あなた</div><div id="a1"></div></div><div class="vs">⇄</div><div><div class="sub">'+esc(P.en.name)+'</div><div id="a2"></div></div></div>'
+   +'<div class="sub" style="margin:8px 0 14px">勝てば相手のカードを得て、負ければあなたのカードを失いハートが1つ減ります。</div>'
+   +'<div class="menu"><button class="primary" id="fight">戦う</button><button class="ghost" id="deck">デッキを確認</button></div></div>';
+  const e1=cardEl(my,{}); e1.onclick=()=>cardSheet(my,{},[]); s.querySelector('#a1').appendChild(e1);
+  const e2=cardEl(P.enAnte,{}); e2.onclick=()=>cardSheet(P.enAnte,{},[]); s.querySelector('#a2').appendChild(e2);
+  s.querySelector('#fight').onclick=advFight;
+  s.querySelector('#deck').onclick=()=>show('advDeck');
+}
+function advFight(){
+  const P=advRun.pending; if(!P) return;
+  advEnsureDeck(); if(!advRun.deck.includes(P.myAnte)){ P.myAnte=advRun.deck[0]; }
+  const myDefs=advDeckDefs(); const myMain=advMain(myDefs);
+  const a=advArea();
+  series={ adv:true, online:null, boss:null, level:P.en.level, wins:[0,0], gameNo:1, format:1, mains:[myMain,P.en.attr], pools:[[],[]], decks:[[],[]] };
+  ui.me=0;
+  game=new AN.Game({ seed:advRun.seed+':g'+advRng('g')(), decks:[myDefs, P.en.deck], names:['あなた', P.en.name], mains:[myMain, P.en.attr], choosers:[null, AN.AI.chooser(P.en.level)],
+    lifes:[0,P.en.life], leaders:[null,P.en.leader], energyBonus:[0,P.en.energy], fieldBuff: a?{attr:a,n:1}:null, bossRules: P.en.final?[null,{chaos:true}]:null });
+  if(a) game.say('この地では'+AN.ATTRS[a].n+'属性のクリーチャーは+1/+1','turn');
+  ui.attackFrom=null; evSeen=0; ui.mullSel=new Set();
+  game.mulligan(game.players[1], AN.AI.mullPick(game,1));
+  advRun.stage='battle'; advSave();
+  show('battle'); scheduleCpu();
+}
+function advFinish(winner){
+  const P=advRun.pending; const won=winner===0; const ai=advRun.areaIdx;
+  const res={ won, kind:P.kind, got:null, lost:null, gold:0, picks:null };
+  if(won){
+    advRun.wins++; advRun.col.push(P.enAnte); res.got=P.enAnte;
+    res.gold = P.kind==='battle' ? 25+ai*10 : P.kind==='elite' ? 50+ai*15 : P.kind==='boss' ? 100 : 0;
+    advRun.gold+=res.gold;
+    if(P.kind==='elite' || P.kind==='boss'){
+      const rng=advRng('reward'); const a=P.en.attr; const rars= P.kind==='boss'?['R','L']:['U','R'];
+      const pool=advPool(a,rars).concat(advPool(null,rars));
+      advRun.picks=[rng.pick(pool), rng.pick(pool), P.kind==='boss'? AN.makeLegend(rng, 800) : rng.pick(pool)];
+    }
+  } else {
+    advRun.losses++; advRun.hearts--;
+    const lost=advRun.col[P.myAnte]; res.lost=lost; advRemoveCol(P.myAnte);
+  }
+  advRun.pending=null; advRun.lastResult={ won:res.won, kind:res.kind, gold:res.gold, got:res.got?advSer([res.got])[0]:null, lost:res.lost?advSer([res.lost])[0]:null, final:P.kind==='final' };
+  advRun.stage='reward'; advSave();
+  show('advReward');
+}
+function renderAdvReward(){
+  const R=advRun.lastResult; if(!R){ show('advMap'); return; }
+  const got=R.got?advDeser([R.got])[0]:null, lost=R.lost?advDeser([R.lost])[0]:null;
+  if(!R.won && advRun.hearts<=0){ return advEnd(false); }
+  if(R.won && R.final){ return advEnd(true); }
+  const s=screenEl('advReward');
+  s.innerHTML=advHeader()+'<div class="scroll wrap" style="text-align:center"><div class="big" style="font-family:var(--disp);font-size:30px;color:'+(R.won?'#7be0b0':'#f28f8f')+';margin:10px 0">'+(R.won?'勝利':'敗北')+'</div>'
+   +(R.won?'<div class="sub">賭けたカードを手に入れた'+(R.gold?'・'+R.gold+'Gを得た':'')+'</div><div class="picks" id="got"></div>':'<div class="sub">賭けたカードを失い、ハートが1つ減った</div><div class="picks" id="lost"></div>')
+   +(advRun.picks&&R.won?'<div class="field-label" style="margin-top:14px">報酬：1枚選んで持ち帰る</div><div class="picks" id="picks"></div>':'')
+   +'<div class="menu" style="margin-top:16px"><button class="primary" id="next">'+(advRun.picks&&R.won?'選ばずに進む':'先へ進む')+'</button></div></div>';
+  if(got){ const e=cardEl(got,{}); e.onclick=()=>cardSheet(got,{},[]); s.querySelector('#got').appendChild(e); }
+  if(lost){ const e=cardEl(lost,{}); e.style.opacity=.6; s.querySelector('#lost').appendChild(e); }
+  if(advRun.picks&&R.won){ const pk=s.querySelector('#picks'); advRun.picks.forEach(d=>{ const e=cardEl(d,{}); e.onclick=()=>cardSheet(d,{},[{label:'これを選ぶ',cls:'primary',fn:()=>{ advRun.col.push(d); advRun.picks=null; advAfterReward(R); }}]); pk.appendChild(e); }); }
+  s.querySelector('#next').onclick=()=>{ advRun.picks=null; advAfterReward(R); };
+}
+function advAfterReward(R){ advRun.lastResult=null; advEnsureDeck(); if(!R.won){ advRun.choices=null; advGenChoices(); advRun.stage='map'; advSave(); show('advMap'); return; } advNext(); }
+function advEnd(victory){
+  const s=screenEl('advEnd'); const r=advRun;
+  s.innerHTML='<div class="result"><div class="big" style="color:'+(victory?'#FFD86B':'#f28f8f')+'">'+(victory?'特異点を制覇':'冒険の終わり')+'</div><div class="sub">'+(victory?'すべての歪みを鎮め、あなたの名は語り継がれる。':'ハートが尽きた。')+'</div><div class="sub">勝利 '+r.wins+' ・ 敗北 '+r.losses+' ・ 所持カード '+r.col.length+'枚 ・ '+r.gold+'G</div><div class="menu" style="width:100%;max-width:320px"><button class="primary" id="home">タイトルへ</button></div></div>';
+  advClear(); advRun=null;
+  s.querySelector('#home').onclick=()=>show('title');
+}
+// ---------- 店 ----------
+function advMakeShop(){
+  const rng=advRng('shop'); const a=advArea()||rng.pick(AN.ATTR_ORDER); const other=rng.pick(AN.ATTR_ORDER.filter(x=>x!==a));
+  const rr=()=>{ const r=rng()*100; return r<50?'C':r<82?'U':r<96?'R':'L'; };
+  const pick=(attr)=>{ const k=rr(); const p=advPool(attr,[k]); return p.length?rng.pick(p):rng.pick(advPool(attr,['C'])); };
+  const items=[pick(a),pick(a),pick(a),pick(null),pick(null),pick(other)];
+  if(rng()<0.35) items.push(AN.makeAnomaly(rng, 900, null));
+  advRun.shop=items.map(d=>({d, price:ADV_PRICE[d.anomaly?'A':d.rarity], sold:false}));
+}
+function renderAdvShop(){
+  if(!advRun.shop) advMakeShop();
+  const s=screenEl('advShop');
+  s.innerHTML=advHeader()+'<div class="scroll wrap"><div class="advscene"><span class="ico">'+AN.iconSvg({i:'barrel'})+'</span><div>旅の商人の店。「いいカードが揃ってるよ」</div></div>'
+   +'<div class="field-label">買う（タップで詳細）</div><div class="grid" id="buy"></div>'
+   +'<div class="field-label">売る（デッキに入っていないカードを半額で）</div><div class="grid" id="sell"></div>'
+   +'<div class="menu"><button class="primary" id="leave">店を出る</button></div></div>';
+  const buy=s.querySelector('#buy');
+  advRun.shop.forEach(o=>{ const w=document.createElement('div'); w.className='pcard'+(o.sold?' out':''); w.appendChild(cardEl(o.d,{})); w.innerHTML+='<div class="price">'+(o.sold?'売約済':o.price+'G')+'</div>'; w.onclick=()=>{ if(o.sold) return cardSheet(o.d,{},[]); cardSheet(o.d,{},[{label:o.price+'Gで買う',cls:'primary',disabled:advRun.gold<o.price,fn:()=>{ advRun.gold-=o.price; o.sold=true; advRun.col.push(o.d); advSave(); renderAdvShop(); }}]); }; buy.appendChild(w); });
+  const sell=s.querySelector('#sell');
+  advRun.col.forEach((d,i)=>{ if(advRun.deck.includes(i)) return; const p=Math.floor(ADV_PRICE[d.anomaly?'A':d.rarity]/2); const w=document.createElement('div'); w.className='pcard'; w.appendChild(cardEl(d,{})); w.innerHTML+='<div class="price">'+p+'G</div>'; w.onclick=()=>cardSheet(d,{},[{label:p+'Gで売る',cls:'primary',fn:()=>{ advRun.gold+=p; advRemoveCol(i); advSave(); renderAdvShop(); }}]); sell.appendChild(w); });
+  if(!sell.children.length) sell.innerHTML='<div class="sub">デッキ外のカードがありません</div>';
+  s.querySelector('#leave').onclick=()=>advNext();
+}
+// ---------- 宿 ----------
+function renderAdvInn(){
+  const s=screenEl('advInn'); const cost=30;
+  s.innerHTML=advHeader()+'<div class="scroll wrap" style="text-align:center"><div class="advscene big"><span class="ico">'+AN.iconSvg({i:'lantern'})+'</span><div>小さな宿屋。暖炉の火が揺れている。</div></div>'
+   +'<div class="menu"><button class="primary" id="rest" '+(advRun.hearts>=advRun.maxHearts||advRun.gold<cost?'disabled':'')+'>泊まる（'+cost+'G・ハート+1）</button><button id="deck">デッキを組み直す</button><button class="ghost" id="leave">発つ</button></div>'
+   +(advRun.hearts>=advRun.maxHearts?'<div class="sub">ハートは満タンです</div>':'')+'</div>';
+  s.querySelector('#rest').onclick=()=>{ advRun.gold-=cost; advRun.hearts=Math.min(advRun.maxHearts,advRun.hearts+1); advSave(); toast('ハートが回復した'); advNext(); };
+  s.querySelector('#deck').onclick=()=>show('advDeck');
+  s.querySelector('#leave').onclick=()=>advNext();
+}
+// ---------- 謎の出来事 ----------
+const ADV_EVENTS=[
+  { key:'altar', icon:'gate', title:'古い祭壇', text:'苔むした祭壇が脈打っている。血を捧げれば、歪みの力を授けるという。', choices:[
+    { label:'ハートを1つ捧げる', ok:r=>r.hearts>1, run:(r,rng)=>{ r.hearts--; const d=AN.makeLegend(rng,1200); r.col.push(d); return {msg:'伝説のアノマリーを授かった。', card:d}; } },
+    { label:'立ち去る', run:()=>({msg:'あなたは祭壇に背を向けた。'}) } ] },
+  { key:'chest', icon:'barrel', title:'宝箱', text:'道の脇に古びた宝箱が転がっている。', choices:[
+    { label:'開ける', run:(r,rng)=>{ if(rng()<0.2){ return {msg:'宝箱は魔物だった！', fight:true}; } const g=40+rng.int(41); r.gold+=g; return {msg:g+'Gを見つけた。'}; } },
+    { label:'放っておく', run:()=>({msg:'触らぬ神に祟りなし。'}) } ] },
+  { key:'merchant', icon:'scroll', title:'行商人', text:'「掘り出し物があるよ。今日だけ半額だ」', offer:true, choices:[
+    { label:'買う', ok:(r,o)=>r.gold>=o.price, run:(r,rng,o)=>{ r.gold-=o.price; r.col.push(o.d); return {msg:'「毎度あり」', card:o.d}; } },
+    { label:'断る', run:()=>({msg:'行商人は肩をすくめた。'}) } ] },
+  { key:'spring', icon:'drop', title:'癒しの泉', text:'澄んだ泉が湧いている。', choices:[
+    { label:'水を飲む', run:(r)=>{ const h=r.hearts; r.hearts=Math.min(r.maxHearts,r.hearts+1); return {msg: r.hearts>h?'ハートが1つ回復した。':'体に力がみなぎった（ハートは満タン）。'}; } } ] },
+  { key:'mirror', icon:'mirror', title:'呪いの鏡', text:'覗き込むと、手持ちのカードが歪んで見える。', choices:[
+    { label:'覗き込む', run:(r,rng)=>{ const idx=r.col.map((d,i)=>i).filter(i=>!r.col[i].anomaly); if(!idx.length) return {msg:'何も起きなかった。'}; const i=rng.pick(idx); const old=r.col[i]; const d=AN.makeAnomaly(rng,1300,null); r.col[i]=d; return {msg:'「'+old.name+'」がアノマリーに変わった。', card:d}; } },
+    { label:'鏡を割る', run:(r)=>{ r.gold+=20; return {msg:'破片の中から20Gが出てきた。'}; } } ] },
+  { key:'library', icon:'book', title:'賢者の書庫', text:'埃をかぶった書物の中に、カードが挟まっている。1冊だけ持ち出せそうだ。', pick3:true, choices:[] },
+  { key:'lost', icon:'dog', title:'迷い犬', text:'小さな犬が後をついてくる。', choices:[
+    { label:'連れていく', run:(r,rng)=>{ const a=advArea()||r.start; const p=advPool(a,['U']); const d=rng.pick(p); r.col.push(d); return {msg:'犬が口にくわえていたカードをくれた。', card:d}; } },
+    { label:'追い払う', run:()=>({msg:'犬は寂しそうに去っていった。'}) } ] },
+];
+function advPickEvent(){ const rng=advRng('event'); const e=rng.pick(ADV_EVENTS); const ev={key:e.key}; if(e.offer){ const a=advArea()||advRun.start; const p=advPool(a,['R']); const d=rng.pick(p); ev.offer={d:d.id, price:Math.floor(ADV_PRICE.R/2)}; } if(e.pick3){ const a=advArea()||advRun.start; const p=advPool(a,['U','R']).concat(advPool(null,['U','R'])); ev.pick=[rng.pick(p).id,rng.pick(p).id,rng.pick(p).id]; } return ev; }
+function renderAdvEvent(){
+  const ev=advRun.event; if(!ev){ advNext(); return; }
+  const E=ADV_EVENTS.find(x=>x.key===ev.key); const s=screenEl('advEvent');
+  const offer=ev.offer?{d:AN.CARD_BY_ID[ev.offer.d], price:ev.offer.price}:null;
+  s.innerHTML=advHeader()+'<div class="scroll wrap" style="text-align:center"><div class="advscene big"><span class="ico">'+AN.iconSvg({i:E.icon})+'</span><div class="et">'+esc(E.title)+'</div><div>'+esc(E.text)+'</div></div>'
+   +(ev.done?'<div class="evmsg">'+esc(ev.done.msg)+'</div><div class="picks" id="evcard"></div><div class="menu"><button class="primary" id="go">先へ進む</button></div>':
+     (offer?'<div class="picks" id="offer"></div><div class="sub">'+offer.price+'G</div>':'')+(E.pick3?'<div class="picks" id="pk3"></div><div class="menu"><button class="ghost" id="skip">何も持たずに去る</button></div>':'<div class="menu" id="ch"></div>'))+'</div>';
+  if(ev.done){ if(ev.done.card){ const d=advDeser([ev.done.card])[0]; const e=cardEl(d,{}); e.onclick=()=>cardSheet(d,{},[]); s.querySelector('#evcard').appendChild(e); } s.querySelector('#go').onclick=()=>{ if(ev.done.fight){ advRun.event=null; advPrepBattle('battle'); } else advNext(); }; return; }
+  if(offer){ const e=cardEl(offer.d,{}); e.onclick=()=>cardSheet(offer.d,{},[]); s.querySelector('#offer').appendChild(e); }
+  if(E.pick3){ const pk=s.querySelector('#pk3'); ev.pick.forEach(id=>{ const d=AN.CARD_BY_ID[id]; const e=cardEl(d,{}); e.onclick=()=>cardSheet(d,{},[{label:'これを持ち出す',cls:'primary',fn:()=>{ advRun.col.push(d); ev.done={msg:'「'+d.name+'」を手に入れた。', card:d.id}; advSave(); renderAdvEvent(); }}]); pk.appendChild(e); }); s.querySelector('#skip').onclick=()=>advNext(); return; }
+  const ch=s.querySelector('#ch');
+  E.choices.forEach(c=>{ const b=document.createElement('button'); b.textContent=c.label; const ok=!c.ok||c.ok(advRun,offer); b.disabled=!ok; if(E.choices[0]===c) b.className='primary'; b.onclick=()=>{ const r=c.run(advRun, advRng('ev'), offer); ev.done={msg:r.msg, card:r.card?advSer([r.card])[0]:null, fight:!!r.fight}; advSave(); renderAdvEvent(); }; ch.appendChild(b); });
+}
+// ---------- デッキ編集 ----------
+function renderAdvDeck(){
+  const s=screenEl('advDeck'); const col=advRun.col; const deck=advRun.deck;
+  const inDeck=advDeckDefs(); const attrs=advAttrs(inDeck); const ok=deck.length===30 && attrs.length<=2;
+  const groups=new Map(); col.forEach((d,i)=>{ const k=d.anomaly?d.id+i:d.id; if(!groups.has(k)) groups.set(k,{d,idx:[]}); groups.get(k).idx.push(i); });
+  const arr=[...groups.values()].sort((a,b)=>(a.d.anomaly?-1:0)-(b.d.anomaly?-1:0) || (a.d.attr[0]||'z').localeCompare(b.d.attr[0]||'z') || a.d.cost-b.d.cost);
+  const curve=[0,0,0,0,0,0,0,0,0]; inDeck.forEach(d=>curve[Math.min(8,d.cost)]++); const maxC=Math.max(1,...curve);
+  s.innerHTML='<div class="topbar"><button class="ghost" id="back">←</button><div class="t">デッキ編集 <span class="sub">所持'+col.length+'枚</span></div><button class="ghost helpbtn" id="help">？</button><button class="ghost" id="auto">おまかせ</button></div>'
+   +'<div class="sub" style="padding:6px 12px">30枚ちょうど。属性は2つまで（無属性・アノマリーは自由）。多い方の属性のリーダー能力を使います。</div>'
+   +'<div class="scroll"><div class="grid" id="grid"></div></div>'
+   +'<div class="deckbar"><div class="n '+(ok?'ok':'')+'">'+deck.length+'<span class="sub" style="font-family:var(--font);font-size:11px">/30</span></div><div class="attrs">'+attrs.map(a=>'<span style="color:'+AN.ATTRS[a].c+'">'+AN.ATTRS[a].n+inDeck.filter(d=>d.attr.includes(a)).length+'</span>').join('')+(attrs.length>2?'<span style="color:#f28f8f">属性3以上</span>':'')+'</div><div class="curve">'+curve.slice(1).map((c,i)=>'<i data-c="'+(i+1)+'" style="height:'+Math.max(2,c/maxC*22)+'px"></i>').join('')+'</div><div style="flex:1"></div><button class="primary" id="done" '+(ok?'':'disabled')+'>決定</button></div>';
+  const grid=s.querySelector('#grid');
+  arr.forEach(g=>{ const n=g.idx.filter(i=>deck.includes(i)).length; const w=document.createElement('div'); w.className='pcard'+(n===0?' out':''); w.appendChild(cardEl(g.d,{})); w.innerHTML+='<div class="have">×'+g.idx.length+'</div>'+(n?'<div class="cnt">'+n+'</div>':'');
+    w.onclick=()=>{ const n=g.idx.filter(i=>deck.includes(i)).length; cardSheet(g.d,{},[
+      {label:'− 外す（'+n+'）',disabled:n===0,fn:()=>{ const i=g.idx.find(i=>deck.includes(i)); deck.splice(deck.indexOf(i),1); advSave(); renderAdvDeck(); }},
+      {label:'＋ 入れる',cls:'primary',disabled:n>=g.idx.length||deck.length>=30,fn:()=>{ const i=g.idx.find(i=>!deck.includes(i)); deck.push(i); advSave(); renderAdvDeck(); }} ]); };
+    grid.appendChild(w); });
+  const back=()=>{ if(!ok){ if(!confirm('デッキが条件を満たしていません。おまかせで組み直して戻りますか？')) return; advAutoDeck(); } advSave(); show(advRun.stage==='ante'?'advAnte':(advRun.stage==='inn'?'advInn':'advMap')); };
+  s.querySelector('#back').onclick=back; s.querySelector('#done').onclick=back;
+  s.querySelector('#auto').onclick=()=>{ advAutoDeck(); advSave(); renderAdvDeck(); };
+  s.querySelector('#help').onclick=showGlossary;
+}
 
 window.__act=(a)=>doAct(a);
 window.__g=()=>game; window.__rb=()=>renderBattle();

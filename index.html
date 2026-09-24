@@ -138,6 +138,11 @@ input[type=text]{background:var(--panel);border:1px solid var(--line);color:var(
 @media (prefers-reduced-motion:reduce){.reveal,.rv-card,.rv-kind{animation:none}}
 .card.mullx{outline:3px solid #f28f8f;outline-offset:-3px}
 .card.mullx::before{content:'戻す';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;background:rgba(160,40,40,.55);z-index:3;font-size:13px}
+.bosscard{background:var(--panel);border-radius:12px;padding:12px;margin-bottom:10px;border-left:4px solid var(--ac)}
+.bosscard .bn{font-weight:700;margin-bottom:4px}
+.bosscard .clr{font-size:11px;color:#7be0b0;margin-left:6px}
+.bosscard button{margin-top:8px;width:100%}
+.bosscard.locked{opacity:.45}
 .helpbtn{padding:4px 10px;font-family:var(--disp);font-size:13px;border-radius:8px}
 .overlay.center .sheet{max-height:94%}
 .sheet .btns{display:flex;gap:8px;margin-top:14px}
@@ -864,6 +869,9 @@ const LEADER_EX = {
   meteor:  { name:'星降らし', cost:3, text:'相手のクリーチャーか相手プレイヤーからランダムに選んで1ダメージ、を3回行う。', ef:ef('leader','randomDmg',{n:3}) },
   oracle:  { name:'託宣', cost:2, text:'自分の山札の上から2枚を見て、1枚を手札に加え、残りを山札の下に置く。', ef:ef('leader','scry',{n:2}) },
   fiend:   { name:'業魔召喚', cost:2, text:'自分の場に「業魔」（3/3・速攻）を1体出す。', ef:ef('leader','tokens',{n:1,tok:'fiend'}) },
+  boss_tide:{ name:'渦潮', cost:2, text:'自分はカードを1枚引き、自分の手札にある詠唱カードすべての詠唱+1。', ef:[ef('leader','draw',{n:1}),ef('leader','boostHand',{n:1})] },
+  boss_ray: { name:'裁きの光', cost:2, text:'自分のライフを4回復し、自分の場に「光の羽」（1/1・守護）を1体出す。', ef:[ef('leader','heal',{n:4}),ef('leader','tokens',{n:1,tok:'ray'})] },
+  boss_void:{ name:'冥王の呪', cost:3, text:'相手のクリーチャーすべてに-1/-1（永続）。', ef:ef('leader','weakenAll',{n:1}) },
   summon:  { name:'召集', cost:2, text:'自分の場に「兵士」（1/1）を1体出す。', ef:ef('leader','tokens',{n:1,tok:'none'}) },
 };
 const FROG = { id:'tok_frog', name:'カエル', attr:['grow'], type:'creature', cost:1, power:1, hp:1, rarity:'C', kw:[], effects:[], token:true };
@@ -877,7 +885,15 @@ function cardValue(d){
   return v;
 }
 
-Object.assign(AN, { LEGEND_TYPES, makeLegend, LEADER_EX, FROG, SKULL, TOKENS, SPECIAL, makeWeird, reqText, LEADER, ATTR_ALL, makeRng, hashStr, ATTRS, ATTR_ORDER, RARITY, KW, KW_HELP, BASE_POWER, CARDS, CARD_BY_ID, cardText, effectText, drawPool, makeAnomaly, cardValue });
+// ---- ボス（v2.12）----
+const BOSSES = [
+  { key:'b1', name:'炎獄の番人', attr:'flare', tier:1, life:25, leader:null, energy:0, legends:0, anomalies:1, desc:'ライフ25。リーダー能力は通常の「火花」。コモン・アンコモンだけの炎デッキ（入門）。' },
+  { key:'b2', name:'渦潮の魔導師', attr:'tide', tier:2, life:38, leader:'boss_tide', energy:0, legends:1, anomalies:2, desc:'ライフ38。リーダー能力「渦潮」（1ドロー＋詠唱）。レアまでの水デッキ＋伝説のアノマリー1枚。' },
+  { key:'b3', name:'大森林の王', attr:'grow', tier:2, life:42, leader:'bloom', energy:0, legends:1, anomalies:2, desc:'ライフ42。リーダー能力「大成長」（+2/+2）。レアまでの森デッキ＋伝説1枚。' },
+  { key:'b4', name:'天光の審判者', attr:'ray', tier:3, life:35, leader:'boss_ray', energy:1, legends:1, anomalies:3, desc:'ライフ35。最大エナジー+1で開始。リーダー能力「裁きの光」（4回復＋守護トークン）。レジェンド入りの光デッキ＋伝説1枚。' },
+  { key:'b5', name:'冥府の支配者', attr:'void', tier:3, life:45, leader:'boss_void', energy:1, legends:2, anomalies:3, desc:'ライフ45。最大エナジー+1で開始。リーダー能力「冥王の呪」（相手全体-1/-1）。レジェンド入りの闇デッキ＋伝説2枚。' },
+];
+Object.assign(AN, { BOSSES, LEGEND_TYPES, makeLegend, LEADER_EX, FROG, SKULL, TOKENS, SPECIAL, makeWeird, reqText, LEADER, ATTR_ALL, makeRng, hashStr, ATTRS, ATTR_ORDER, RARITY, KW, KW_HELP, BASE_POWER, CARDS, CARD_BY_ID, cardText, effectText, drawPool, makeAnomaly, cardValue });
 if(typeof module!=='undefined') module.exports = AN;
 })();
 
@@ -1054,6 +1070,9 @@ class Game {
     }));
     this.turn = 0; this.active = opts.first==null ? this.rng.int(2) : opts.first;
     this.first = this.active;
+    if(opts.lifes) this.players.forEach((p,i)=>{ if(opts.lifes[i]) p.life=opts.lifes[i]; });
+    if(opts.leaders) this.players.forEach((p,i)=>{ if(opts.leaders[i]) p.leaderOverride=AN.LEADER_EX[opts.leaders[i]]; });
+    if(opts.energyBonus) this.players.forEach((p,i)=>{ p.energyMax=opts.energyBonus[i]||0; });
     this.phase = 'main'; this.queue=[]; this.pending=null; this.winner=null; this.log=[]; this.events=[];
     this.attackCtx=null;
     for(const p of this.players) this.draw(p, HAND_START + (p.i===this.first?0:1), true);
@@ -1869,7 +1888,18 @@ function step(g, level){
   g.endTurn(); return null;
 }
 
-AN.AI={LV, autoDeck, bestMain, chooser, step, mullPick};
+function bossDeck(boss, rng){
+  const pool=[];
+  const okR = boss.tier===1 ? ['C','U'] : boss.tier===2 ? ['C','U','R'] : ['C','U','R','L'];
+  AN.CARDS.forEach(d=>{ if((d.attr.includes(boss.attr) || d.attr.length===0) && okR.includes(d.rarity)){ const k=d.rarity==='L'?1:2; for(let i=0;i<k;i++) pool.push(d); } });
+  for(let i=0;i<boss.legends;i++) pool.unshift(AN.makeLegend(rng, 9000+i*3));
+  for(let i=0;i<boss.anomalies-boss.legends;i++) pool.unshift(AN.makeAnomaly(rng, 9001+i*3, null));
+  const deck=autoDeck(pool, rng, boss.attr);
+  // 伝説は必ず入れる
+  pool.filter(d=>d.legend).forEach(d=>{ if(!deck.includes(d)){ deck.pop(); deck.unshift(d); } });
+  return {pool, deck};
+}
+AN.AI={LV, autoDeck, bestMain, chooser, step, mullPick, bossDeck};
 if(typeof module!=='undefined') module.exports = AN;
 })();
 
@@ -1926,7 +1956,7 @@ const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',
 // ---------- serialization ----------
 function serPool(pool){ return pool.map(d=>d.anomaly? d : d.id); }
 function deserPool(arr){ return arr.map(x=> typeof x==='string' ? AN.CARD_BY_ID[x] : x); }
-function save(){ if(!series) return; try{ localStorage.setItem(LS, JSON.stringify({seed:series.seed,format:series.format,level:series.level,wins:series.wins,gameNo:series.gameNo,pools:series.pools.map(serPool),decks:series.decks,nextFirst:series.nextFirst,mains:series.mains})); }catch(e){} }
+function save(){ if(!series) return; try{ localStorage.setItem(LS, JSON.stringify({seed:series.seed,format:series.format,level:series.level,wins:series.wins,gameNo:series.gameNo,pools:series.pools.map(serPool),decks:series.decks,nextFirst:series.nextFirst,mains:series.mains,boss:series.boss||null})); }catch(e){} }
 function load(){ try{ const j=JSON.parse(localStorage.getItem(LS)); if(!j) return null; j.pools=j.pools.map(deserPool); return j; }catch(e){ return null; } }
 function clearSave(){ try{ localStorage.removeItem(LS); }catch(e){} }
 
@@ -2027,7 +2057,7 @@ function show(name){ ui.screen=name; render(); }
 function render(){
   closeSheet();
   app.innerHTML='';
-  const fn={title:renderTitle, setup:renderSetup, draft:renderDraft, battle:renderBattle, codex:renderCodex, result:renderResult, lobby:renderLobby, wait:renderWait}[ui.screen];
+  const fn={boss:renderBoss, title:renderTitle, setup:renderSetup, draft:renderDraft, battle:renderBattle, codex:renderCodex, result:renderResult, lobby:renderLobby, wait:renderWait}[ui.screen];
   fn();
 }
 function screenEl(id){ closeSheet(); app.innerHTML=''; const s=document.createElement('div'); s.className='screen on'; s.id=id; app.appendChild(s); return s; }
@@ -2042,13 +2072,15 @@ function renderTitle(){
    +'<div class="menu">'
    +(saved?'<button class="primary" id="btnResume">続きから（第'+saved.gameNo+'ゲーム・'+saved.wins[0]+'–'+saved.wins[1]+'）</button>':'')
    +'<button class="'+(saved?'':'primary')+'" id="btnNew">新しい対戦を始める</button>'
+   +'<button id="btnBoss">ボスに挑戦</button>'
    +'<button id="btnOnline">オンライン対戦（部屋コード）</button>'
    +(loadOnline()?'<button id="btnOnlineResume">オンライン対戦を再開（部屋 '+esc(loadOnline().code)+'）</button>':'')
    +'<button id="btnCodex">カードリスト（図鑑）</button>'
-   +'</div><div class="sub" style="margin-top:28px;font-size:11px">v2.11 — CPU戦・'+AN.CARDS.length+'種プール</div></div>';
+   +'</div><div class="sub" style="margin-top:28px;font-size:11px">v2.12 — CPU戦・'+AN.CARDS.length+'種プール</div></div>';
   s.querySelector('#btnNew').onclick=()=>show('setup');
   s.querySelector('#btnCodex').onclick=()=>show('codex');
   s.querySelector('#btnOnline').onclick=()=>show('lobby');
+  s.querySelector('#btnBoss').onclick=()=>show('boss');
   const ro=s.querySelector('#btnOnlineResume'); if(ro) ro.onclick=()=>onlineResume();
   if(saved) s.querySelector('#btnResume').onclick=()=>{ series=saved; if(series.decks[0]&&series.decks[0].length===AN.CONST.DECK_SIZE) startGame(); else show('draft'); };
 }
@@ -2072,9 +2104,12 @@ function newSeries(){
   const seed=setup.seed||('s'+Math.floor(Math.random()*1e9).toString(36));
   const rng=AN.makeRng('pool:'+seed);
   const pools=[0,1].map(i=>{ const p=AN.drawPool(rng,87,null); const an=[0,1,2].map(k=>AN.makeAnomaly(rng,i*3+k,null)); return an.concat(p); });
-  const mains=[null, AN.AI.bestMain(pools[1])];
-  series={seed, format:setup.format, level:setup.level, wins:[0,0], gameNo:1, pools, decks:[[],[]], nextFirst:null, mains};
-  series.decks[1]=indicesFor(pools[1], AN.AI.autoDeck(pools[1],rng,mains[1]));
+  let mains=[null, AN.AI.bestMain(pools[1])];
+  let boss=null;
+  let bd=null;
+  if(setup.boss){ boss=AN.BOSSES.find(b=>b.key===setup.boss); bd=AN.AI.bossDeck(boss, rng); pools[1]=bd.pool; mains[1]=boss.attr; }
+  series={seed, format:boss?1:setup.format, level:boss?3:setup.level, wins:[0,0], gameNo:1, pools, decks:[[],[]], nextFirst:null, mains, boss:boss?boss.key:null};
+  series.decks[1]= boss ? indicesFor(pools[1], bd.deck) : indicesFor(pools[1], AN.AI.autoDeck(pools[1],rng,mains[1]));
   save(); show('draft');
 }
 function indicesFor(pool, defs){ const used=new Set(); const out=[]; defs.forEach(d=>{ for(let i=0;i<pool.length;i++){ if(pool[i]===d&&!used.has(i)){ used.add(i); out.push(i); break; } } }); return out; }
@@ -2146,7 +2181,9 @@ function startGame(){
   const decks=[0,1].map(i=>series.decks[i].map(k=>series.pools[i][k]));
   // fresh anomaly reveal state per series is kept on the def object; fine.
   const first = series.nextFirst==null ? null : series.nextFirst;
-  game=new AN.Game({seed:series.seed+':g'+series.gameNo, decks, names:['あなた','CPU'], first, mains:series.mains||[null,null], choosers:[null, AN.AI.chooser(series.level)]});
+  const boss=series.boss? AN.BOSSES.find(b=>b.key===series.boss) : null;
+  game=new AN.Game({seed:series.seed+':g'+series.gameNo, decks, names:['あなた', boss?boss.name:'CPU'], first, mains:series.mains||[null,null], choosers:[null, AN.AI.chooser(series.level)],
+    lifes: boss?[0,boss.life]:null, leaders: boss?[null,boss.leader]:null, energyBonus: boss?[0,boss.energy]:null});
   ui.attackFrom=null; evSeen=0; ui.mullSel=new Set();
   game.mulligan(game.players[1], AN.AI.mullPick(game,1));
   show('battle'); scheduleCpu();
@@ -2283,6 +2320,19 @@ function renderBattle(){
   if(humanPend) renderPending(pend);
   if(game.winner!=null) setTimeout(finishGame, 900);
 }
+// ---------- ボス選択 ----------
+const LSB='anomaly_boss_v1';
+function bossProgress(){ try{ return parseInt(localStorage.getItem(LSB)||'0'); }catch(e){ return 0; } }
+function setBossProgress(n){ try{ localStorage.setItem(LSB,String(n)); }catch(e){} }
+function renderBoss(){
+  const s=screenEl('boss'); const prog=bossProgress();
+  s.innerHTML='<div class="topbar"><button class="ghost" id="back">←</button><div class="t">ボスに挑戦</div></div><div class="scroll wrap">'
+   +'<div class="sub" style="line-height:1.7;margin-bottom:12px">いつもどおり90枚を受け取ってデッキを組み、強化されたボスと1本勝負。倒すと次のボスが解放されます。ボスは全カードから選んだ強いデッキを使います。</div>'
+   +AN.BOSSES.map((b,i)=>{ const open=i<=prog; const cleared=i<prog; return '<div class="bosscard'+(open?'':' locked')+'" style="--ac:'+AN.ATTRS[b.attr].c+'"><div class="bn">'+(i+1)+'. '+esc(b.name)+(cleared?' <span class="clr">撃破済</span>':'')+'</div><div class="sub">'+(open?esc(b.desc):'前のボスを倒すと解放')+'</div>'+(open?'<button class="primary" data-b="'+b.key+'">挑戦する</button>':'')+'</div>'; }).join('')
+   +'</div>';
+  s.querySelector('#back').onclick=()=>show('title');
+  s.querySelectorAll('button[data-b]').forEach(bt=>bt.onclick=()=>{ setup.boss=bt.dataset.b; setup.seed=''; newSeries(); setup.boss=null; });
+}
 function renderMulligan(){
   const me=game.players[ui.me];
   if(game.mullDone[ui.me]){ sheet('<h3>マリガン</h3><div class="sub">相手が手札を選んでいます…</div>', true, true); return; }
@@ -2346,10 +2396,12 @@ function renderResult(){
   const over=series.wins[0]>=need||series.wins[1]>=need;
   const ME=ui.me; const won=series.lastWinner===ME;
   const revealed=series.pools[1-ME].filter(d=>d.anomaly&&d.revealed);
-  const oppName=series.online? series.online.oppName : 'CPU';
+  const bossD=series.boss? AN.BOSSES.find(b=>b.key===series.boss) : null;
+  const oppName=series.online? series.online.oppName : (bossD?bossD.name:'CPU');
+  if(bossD && over && series.wins[ME]>=need){ const idx=AN.BOSSES.indexOf(bossD); if(bossProgress()<idx+1) setBossProgress(idx+1); }
   s.innerHTML='<div class="result"><div class="big" style="color:'+(won?'#7be0b0':'#f28f8f')+'">'+(won?'WIN':'LOSE')+'</div><div class="sub">第'+series.gameNo+'ゲーム・'+series.lastTurns+'ターンで決着</div>'
-   +'<div class="score">'+series.wins[ME]+' – '+series.wins[1-ME]+'</div>'
-   +(over?'<div class="big" style="font-size:22px">'+(series.wins[ME]>need-1?'シリーズ勝利':'シリーズ敗北')+'</div>':'<div class="sub">'+(won?'次は'+esc(oppName)+'が先攻':'次はあなたが先攻')+'</div>')
+   +(bossD&&over? '<div class="big" style="font-size:22px">'+(series.wins[ME]>=need?esc(bossD.name)+' 撃破！':'敗北…')+'</div>'+(series.wins[ME]>=need && AN.BOSSES.indexOf(bossD)<AN.BOSSES.length-1?'<div class="sub">次のボスが解放されました</div>':'') : '<div class="score">'+series.wins[ME]+' – '+series.wins[1-ME]+'</div>')
+   +(over?(bossD?'':'<div class="big" style="font-size:22px">'+(series.wins[ME]>need-1?'シリーズ勝利':'シリーズ敗北')+'</div>'):'<div class="sub">'+(won?'次は'+esc(oppName)+'が先攻':'次はあなたが先攻')+'</div>')
    +'<div class="sub" style="margin-top:10px">判明した'+esc(oppName)+'のアノマリー：'+(revealed.length?'':'まだなし')+'</div><div class="picks" id="rev"></div>'
    +'<div class="menu" style="width:100%;max-width:320px">'+(over?'<button class="primary" id="home">タイトルへ</button>':'<button class="primary" id="next">デッキを調整して次のゲームへ</button><button id="home">中断してタイトルへ</button>')+'</div></div>';
   const rv=s.querySelector('#rev'); revealed.forEach(d=>{ const el=cardEl(d,{}); el.onclick=()=>cardSheet(d,{},[]); rv.appendChild(el); });

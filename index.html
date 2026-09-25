@@ -904,6 +904,7 @@ const LEADER_EX = {
   boss_tide:{ name:'渦潮', cost:2, text:'自分はカードを1枚引き、自分の手札にある詠唱カードすべての詠唱+1。', ef:[ef('leader','draw',{n:1}),ef('leader','boostHand',{n:1})] },
   boss_ray: { name:'裁きの光', cost:2, text:'自分のライフを4回復し、自分の場に「光の羽」（1/1・守護）を1体出す。', ef:[ef('leader','heal',{n:4}),ef('leader','tokens',{n:1,tok:'ray'})] },
   boss_void:{ name:'冥王の呪', cost:3, text:'相手のクリーチャーすべてに-1/-1（永続）。', ef:ef('leader','weakenAll',{n:1}) },
+  devour:  { name:'万象喰らい', cost:4, text:'相手のクリーチャー1体を破壊し、自分のライフを3回復する。', ef:[ef('leader','destroy',{}),ef('leader','heal',{n:3})] },
   summon:  { name:'召集', cost:2, text:'自分の場に「兵士」（1/1）を1体出す。', ef:ef('leader','tokens',{n:1,tok:'none'}) },
 };
 const FROG = { id:'tok_frog', name:'カエル', attr:['grow'], type:'creature', cost:1, power:1, hp:1, rarity:'C', kw:[], effects:[], token:true };
@@ -1169,6 +1170,7 @@ class Game {
   }
   loseLife(p, n, why){
     if(n<=0) return; p.life -= n; this.ev('life',{p:p.i,n:-n});
+    if(p.bossRules && p.bossRules.phase && !p.phase2 && p.life>0 && p.life<=p.bossRules.phase){ p.phase2=true; p.life+=6; p.leaderOverride=AN.LEADER_EX.devour; p.abilityUsed=false; p.field.forEach(c=>c.pump+=1); this.ev('bossphase',{p:p.i}); this.say(p.name+'は真の姿を現した！（ライフ+6、リーダー能力「万象喰らい」、自分のクリーチャーすべてに+1/+1）','win'); }
     this.say(p.name+'のライフ -'+n+(why?'（'+why+'）':''), 'life');
     this.checkWin();
   }
@@ -1212,6 +1214,7 @@ class Game {
     this.turn++; const p=this.players[this.active]; this.phase='main'; p.abilityUsed=false;
     p.field.forEach(c=>{ if(c.frozen){ c.frozen=false; } else { c.tapped=false; c.stun=false; } c.sick=false; c.tmp=0; c.doubled=false; c.attacked=false; });
     p.energyMax=Math.min(ENERGY_MAX,p.energyMax+1); p.energy=p.energyMax; p.plays=0;
+    if(p.bossRules && p.bossRules.devour && (p.devourTick=(p.devourTick||0)+1)%2===0){ const o2=this.opp(p); const cs=o2.grave.filter(c=>!c.d.token&&!c.d.special); if(cs.length && p.hand.length<HAND_MAX){ const c=cs[this.rng.int(cs.length)]; p.hand.push(this.inst(c.d)); this.say(p.name+'は倒れたものの記憶を喰らった','draw'); } }
     if(p.bossRules && p.bossRules.chaos){
       const keys=Object.keys(AN.LEADER_EX).filter(k=>!k.startsWith('boss_'));
       const pool=keys.map(k=>AN.LEADER_EX[k]).concat(AN.ATTR_ORDER.map(a=>AN.LEADER[a]));
@@ -1268,6 +1271,7 @@ class Game {
     p.hand.splice(p.hand.indexOf(card),1);
     if(d.anomaly) d.revealed=true;
     const snap={combo:p.plays}; p.plays++;
+    { const q=this.opp(p); if(q.bossRules && q.bossRules.devour && d.anomaly && q.hand.length<HAND_MAX){ q.hand.push(this.inst(d)); this.say(q.name+'は「'+d.name+'」を喰らい、写し取った','play'); } }
     if(d.type==='creature'){
       const cr=this.mkCr(card);
       p.field.push(cr); this.say(p.name+'は「'+d.name+'」を召喚（エナジー'+paid+'）','play'); this.ev('play',{p:p.i,uid:card.uid,d:card.d});
@@ -2130,7 +2134,7 @@ function renderTitle(){
    +'<button id="btnOnline">オンライン対戦（部屋コード）</button>'
    +(loadOnline()?'<button id="btnOnlineResume">オンライン対戦を再開（部屋 '+esc(loadOnline().code)+'）</button>':'')
    +'<button id="btnCodex">カードリスト（図鑑）</button>'
-   +'</div><div class="sub" style="margin-top:28px;font-size:11px">v3.0 — CPU戦・'+AN.CARDS.length+'種プール</div></div>';
+   +'</div><div class="sub" style="margin-top:28px;font-size:11px">v3.1 — CPU戦・'+AN.CARDS.length+'種プール</div></div>';
   s.querySelector('#btnNew').onclick=()=>show('setup');
   s.querySelector('#btnCodex').onclick=()=>show('codex');
   s.querySelector('#btnOnline').onclick=()=>show('lobby');
@@ -2256,9 +2260,12 @@ function nextReveal(){
   const r=revealQ.shift(); if(!r){ revealing=false; return; }
   revealing=true;
   const el=document.createElement('div'); el.className='reveal'+(r.d.legend?' legend':'');
+  if(r.d.phase){ el.className='reveal legend'; el.innerHTML='<div class="rv-inner"><div class="rv-kind">真の姿</div><div class="rv-who" style="font-size:18px;color:var(--text)">'+esc(r.d.name)+'が目覚めた</div><div class="rv-tap">タップで閉じる</div></div>'; }
+  else {
   const kind = r.d.legend ? '伝説のアノマリー' : (r.d.weird ? '奇妙なアノマリー' : 'アノマリー');
   el.innerHTML='<div class="rv-inner"><div class="rv-kind">'+kind+'</div><div class="rv-who">'+esc(r.who)+'が解き放った</div><div class="rv-card"></div><div class="rv-tap">タップで閉じる</div></div>';
   el.querySelector('.rv-card').appendChild(cardEl(r.d,{big:true}));
+  }
   document.body.appendChild(el);
   let done=false; const close=()=>{ if(done) return; done=true; el.classList.add('out'); setTimeout(()=>{ el.remove(); nextReveal(); }, 300); };
   el.onclick=close; setTimeout(close, r.d.legend?4200:2800);
@@ -2368,7 +2375,7 @@ function renderBattle(){
   const lifeOp=s.querySelector('#life'+op.i); lifeOp.onclick=()=>{ if(atkMode&&targets.includes('player')){ ui.attackFrom=null; doAct({t:'attack',uid:atkCr.c.uid,target:'player'}); } };
   // events → flashes
   const evs=game.events.slice(evSeen); evSeen=game.events.length;
-  evs.forEach(e=>{ if(e.type==='play' && e.d && e.d.anomaly) queueReveal(e.d, game.players[e.p].name); });
+  evs.forEach(e=>{ if(e.type==='play' && e.d && e.d.anomaly) queueReveal(e.d, game.players[e.p].name); if(e.type==='bossphase') queueReveal({phase:true, name:game.players[e.p].name}, game.players[e.p].name); });
   evs.forEach(e=>{ if(e.type==='life'&&e.n<0){ const l=s.querySelector('#life'+e.p); if(l){ l.classList.add('hit'); } } });
   // pending for human
   if(game.phase==='mulligan'){ renderMulligan(); return; }
@@ -2660,13 +2667,13 @@ function advGenChoices(){
   while(out.length<n){ const t=rng.pick(bag); if(t==='battle' && out.filter(x=>x==='battle').length>=2) continue; if(t!=='battle' && out.includes(t)) continue; out.push(t); }
   advRun.choices=rng.shuffle(out);
 }
-const ADV_NODE={ battle:{n:'戦闘',i:'sword',d:'この地の住人と戦う。勝てば賭けたカードとゴールド。'}, elite:{n:'強敵',i:'helm',d:'手強い相手。勝てばカードを1枚選んで得られる。'}, shop:{n:'店',i:'barrel',d:'カードを買う・売る。'}, inn:{n:'宿',i:'lantern',d:'休んでハートを回復する。'}, event:{n:'謎の出来事',i:'eye',d:'何かが起きる。'}, boss:{n:'地域の主',i:'crown',d:'この地域の主。倒せば次の地域へ。'}, final:{n:'特異点',i:'anom1',d:'すべての歪みの源。'} };
+const ADV_NODE={ battle:{n:'戦闘',i:'sword',d:'この地の住人と戦う。勝てば賭けたカードとゴールド。'}, elite:{n:'強敵',i:'helm',d:'手強い相手。勝てばカードを1枚選んで得られる。'}, shop:{n:'店',i:'barrel',d:'カードを買う・売る。'}, inn:{n:'宿',i:'lantern',d:'休んでハートを回復する。'}, event:{n:'謎の出来事',i:'eye',d:'何かが起きる。'}, boss:{n:'地域の主',i:'crown',d:'この地域の主。倒せば次の地域へ。'}, final:{n:'歪みの果て',i:'darkcrown',d:'すべての歪みを喰らう者が待つ。'} };
 
 // ---------- 画面：開始 ----------
 function renderAdvStart(){
   const s=screenEl('advStart'); const saved=advLoad();
   s.innerHTML='<div class="topbar"><button class="ghost" id="back">←</button><div class="t">冒険モード</div></div><div class="scroll wrap">'
-   +'<div class="sub" style="line-height:1.8">1人用の冒険です。最初の色のカードを持って旅立ち、3つの地域を巡って最後の「特異点」を目指します。戦闘では毎回、お互いにカードを1枚賭けます（勝てば相手のカードを得て、負ければ自分のカードを失い、ハートが1つ減ります）。ハートが0になると冒険は終わりです。</div>'
+   +'<div class="sub" style="line-height:1.8">1人用の冒険です。最初の色のカードを持って旅立ち、3つの地域を巡って「歪みの果て」を目指します。戦闘では毎回、お互いにカードを1枚賭けます（勝てば相手のカードを得て、負ければ自分のカードを失い、ハートが1つ減ります）。ハートが0になると冒険は終わりです。</div>'
    +(saved?'<div class="menu"><button class="primary" id="cont">続きから（'+esc(ADV_AREA[saved.areas[Math.min(saved.areaIdx,2)]].name)+'・所持金'+saved.gold+'G・ハート'+saved.hearts+'）</button></div><div class="field-label" style="margin-top:20px">新しく始める（今の冒険は失われます）</div>':'<div class="field-label" style="margin-top:14px">最初の色を選ぶ</div>')
    +'<div class="advcolors">'+AN.ATTR_ORDER.map(a=>'<button data-c="'+a+'" style="--ac:'+AN.ATTRS[a].c+'"><span class="ico">'+AN.iconSvg({i:ADV_AREA[a].icon})+'</span>'+AN.ATTRS[a].n+'<small>'+AN.ATTRS[a].k+'</small></button>').join('')+'</div></div>';
   s.querySelector('#back').onclick=()=>show('title');
@@ -2675,7 +2682,7 @@ function renderAdvStart(){
 }
 function advHeader(){
   const a=advArea(); const A=a?ADV_AREA[a]:null;
-  return '<div class="advhead" style="--ac:'+(a?AN.ATTRS[a].c:'#C58CFF')+'"><div class="an">'+(A?esc(A.name)+' ・ '+(advRun.floor<5?(advRun.floor+1)+'階':'主の間'):'特異点')+'</div><div class="st">♥'+'♥'.repeat(Math.max(0,advRun.hearts-1))+'<span class="lost">'+'♡'.repeat(advRun.maxHearts-advRun.hearts)+'</span>　'+advRun.gold+'G　所持'+advRun.col.length+'枚</div>'
+  return '<div class="advhead" style="--ac:'+(a?AN.ATTRS[a].c:'#C58CFF')+'"><div class="an">'+(A?esc(A.name)+' ・ '+(advRun.floor<5?(advRun.floor+1)+'階':'主の間'):'歪みの果て')+'</div><div class="st">♥'+'♥'.repeat(Math.max(0,advRun.hearts-1))+'<span class="lost">'+'♡'.repeat(advRun.maxHearts-advRun.hearts)+'</span>　'+advRun.gold+'G　所持'+advRun.col.length+'枚</div>'
    +(a?'<div class="buff">この地では'+AN.ATTRS[a].n+'属性のクリーチャーは+1/+1</div>':'')+'</div>';
 }
 // ---------- 画面：地図（分かれ道） ----------
@@ -2702,7 +2709,13 @@ function advGo(t){
 // ---------- 敵 ----------
 function advMakeEnemy(kind){
   const rng=advRng('enemy'); const ai=advRun.areaIdx; const a=advArea();
-  if(kind==='final'){ const b=AN.BOSSES.find(x=>x.key==='b6'); const bd=AN.AI.bossDeck(b,rng); return { name:b.name, attr:null, life:40, leader:null, energy:2, level:3, deck:bd.deck, final:true, kind }; }
+  if(kind==='final'){
+    let pool=[]; AN.CARDS.forEach(d=>{ if(d.attr.includes('void')||d.attr.includes('flare')||d.attr.length===0){ const k=d.rarity==='L'?1:2; for(let i=0;i<k;i++) pool.push(d); } });
+    const vals=d=>AN.cardValue(d)/Math.max(1,d.cost)*(d.cost<=4?1.15:1)+rng()*0.4;
+    pool.sort((a,b)=>vals(b)-vals(a));
+    const deck=[AN.makeLegend(rng,1500),AN.makeAnomaly(rng,1504,null),AN.makeAnomaly(rng,1505,null)].concat(pool.slice(12,39));
+    return { name:'万象喰らい ザルヴァ＝ネクス', attr:'void', life:30, leader:null, energy:0, level:3, deck, final:true, secret:true, kind };
+  }
   const A=ADV_AREA[a];
   const tiers={battle:[['C'],['C','U'],['C','U','R']], elite:[['C','U'],['C','U','R'],['C','U','R','L']], boss:[['C','U','R'],['C','U','R','L'],['C','U','R','L']]}[kind][ai];
   let pool=[]; AN.CARDS.forEach(d=>{ if((d.attr.includes(a)||d.attr.length===0) && tiers.includes(d.rarity)) pool.push(d); });
@@ -2725,7 +2738,7 @@ function renderAdvAnte(){
   const s=screenEl('advAnte'); const my=advRun.col[P.myAnte];
   const a=P.en.attr;
   s.innerHTML=advHeader()+'<div class="scroll wrap" style="text-align:center">'
-   +'<div class="advfoe" style="--ac:'+(a?AN.ATTRS[a].c:'#C58CFF')+'"><span class="ico">'+AN.iconSvg({i:P.kind==='boss'?'crown':(P.kind==='elite'?'helm':(P.en.final?'anom1':'soldier'))})+'</span><div><div class="fn">'+esc(P.en.name)+'</div><div class="sub">'+({battle:'',elite:'強敵 ・ ',boss:'地域の主 ・ ',final:'最終決戦 ・ '}[P.kind])+'ライフ'+P.en.life+(P.en.leader?' ・ 能力「'+esc(AN.LEADER_EX[P.en.leader].name)+'」':'')+(P.en.energy?' ・ 開始エナジー+'+P.en.energy:'')+'</div></div></div>'
+   +'<div class="advfoe" style="--ac:'+(a?AN.ATTRS[a].c:'#C58CFF')+'"><span class="ico">'+AN.iconSvg({i:P.kind==='boss'?'crown':(P.kind==='elite'?'helm':(P.en.final?'anom1':'soldier'))})+'</span><div><div class="fn">'+esc(P.en.name)+'</div><div class="sub">'+(P.en.secret?'最終決戦 ・ その力は計り知れない':({battle:'',elite:'強敵 ・ ',boss:'地域の主 ・ ',final:'最終決戦 ・ '}[P.kind])+'ライフ'+P.en.life+(P.en.leader?' ・ 能力「'+esc(AN.LEADER_EX[P.en.leader].name)+'」':'')+(P.en.energy?' ・ 開始エナジー+'+P.en.energy:''))+'</div></div></div>'
    +'<div class="field-label">賭けるカード</div><div class="ante"><div><div class="sub">あなた</div><div id="a1"></div></div><div class="vs">⇄</div><div><div class="sub">'+esc(P.en.name)+'</div><div id="a2"></div></div></div>'
    +'<div class="sub" style="margin:8px 0 14px">勝てば相手のカードを得て、負ければあなたのカードを失いハートが1つ減ります。</div>'
    +'<div class="menu"><button class="primary" id="fight">戦う</button><button class="ghost" id="deck">デッキを確認</button></div></div>';
@@ -2742,7 +2755,7 @@ function advFight(){
   series={ adv:true, online:null, boss:null, level:P.en.level, wins:[0,0], gameNo:1, format:1, mains:[myMain,P.en.attr], pools:[[],[]], decks:[[],[]] };
   ui.me=0;
   game=new AN.Game({ seed:advRun.seed+':g'+advRng('g')(), decks:[myDefs, P.en.deck], names:['あなた', P.en.name], mains:[myMain, P.en.attr], choosers:[null, AN.AI.chooser(P.en.level)],
-    lifes:[0,P.en.life], leaders:[null,P.en.leader], energyBonus:[0,P.en.energy], fieldBuff: a?{attr:a,n:1}:null, bossRules: P.en.final?[null,{chaos:true}]:null });
+    lifes:[0,P.en.life], leaders:[null,P.en.leader], energyBonus:[0,P.en.energy], fieldBuff: a?{attr:a,n:1}:null, bossRules: P.en.final?[null,{devour:true, phase:15}]:null });
   if(a) game.say('この地では'+AN.ATTRS[a].n+'属性のクリーチャーは+1/+1','turn');
   ui.attackFrom=null; evSeen=0; ui.mullSel=new Set();
   game.mulligan(game.players[1], AN.AI.mullPick(game,1));
@@ -2787,7 +2800,7 @@ function renderAdvReward(){
 function advAfterReward(R){ advRun.lastResult=null; advEnsureDeck(); if(!R.won){ advRun.choices=null; advGenChoices(); advRun.stage='map'; advSave(); show('advMap'); return; } advNext(); }
 function advEnd(victory){
   const s=screenEl('advEnd'); const r=advRun;
-  s.innerHTML='<div class="result"><div class="big" style="color:'+(victory?'#FFD86B':'#f28f8f')+'">'+(victory?'特異点を制覇':'冒険の終わり')+'</div><div class="sub">'+(victory?'すべての歪みを鎮め、あなたの名は語り継がれる。':'ハートが尽きた。')+'</div><div class="sub">勝利 '+r.wins+' ・ 敗北 '+r.losses+' ・ 所持カード '+r.col.length+'枚 ・ '+r.gold+'G</div><div class="menu" style="width:100%;max-width:320px"><button class="primary" id="home">タイトルへ</button></div></div>';
+  s.innerHTML='<div class="result"><div class="big" style="color:'+(victory?'#FFD86B':'#f28f8f')+'">'+(victory?'歪みの果てを制覇':'冒険の終わり')+'</div><div class="sub">'+(victory?'すべての歪みを鎮め、あなたの名は語り継がれる。':'ハートが尽きた。')+'</div><div class="sub">勝利 '+r.wins+' ・ 敗北 '+r.losses+' ・ 所持カード '+r.col.length+'枚 ・ '+r.gold+'G</div><div class="menu" style="width:100%;max-width:320px"><button class="primary" id="home">タイトルへ</button></div></div>';
   advClear(); advRun=null;
   s.querySelector('#home').onclick=()=>show('title');
 }

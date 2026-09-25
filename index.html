@@ -1270,7 +1270,7 @@ class Game {
     this.trigger(p,'heal',null); }
   // fire a trigger for creatures on p's field (except 'except' creature card)
   trigger(p, t, exceptCard){ p.field.slice().forEach(c=>{ if(exceptCard && c.c===exceptCard) return; this.effs(c).forEach(x=>{ if(x.t===t) this.queue.push({type:'effect',p:p.i,src:c.c,eff:x}); }); }); p.relics.slice().forEach(r=>{ if(exceptCard && r.c===exceptCard) return; r.c.d.effects.forEach(x=>{ if(x.t===t) this.queue.push({type:'effect',p:p.i,src:r.c,eff:x}); }); }); }
-  fireTraps(owner, kind, targetUid){ const fired=owner.traps.filter(c=>c.d.effects.some(x=>x.t===kind)); fired.forEach(c=>{ owner.traps.splice(owner.traps.indexOf(c),1); owner.grave.push(c); c.d.revealed=true; this.say(owner.name+'の罠「'+c.d.name+'」が発動した！','play'); this.ev('trap',{p:owner.i,d:c.d}); c.d.effects.forEach(x=>{ if(x.t===kind) this.queue.push({type:'effect',p:owner.i,src:c,eff:x,choice:targetUid===undefined?undefined:targetUid}); }); }); return fired; }
+  fireTraps(owner, kind, targetUid){ const fired=owner.traps.filter(c=>c.d.effects.some(x=>x.t===kind)); if(fired.length) this.queue.push({type:'trapPause'}); fired.forEach(c=>{ owner.traps.splice(owner.traps.indexOf(c),1); owner.grave.push(c); c.d.revealed=true; this.say(owner.name+'の罠「'+c.d.name+'」が発動した！','play'); this.ev('trap',{p:owner.i,d:c.d}); c.d.effects.forEach(x=>{ if(x.t===kind) this.queue.push({type:'effect',p:owner.i,src:c,eff:x,choice:targetUid===undefined?undefined:targetUid}); }); }); return fired; }
   reqOk(p, req, t, consume){
     if(!req) return true;
     if(req.combo!=null){ const c = t&&t.snap ? t.snap.combo : p.plays; if(c<req.combo) return false; }
@@ -1731,13 +1731,17 @@ class Game {
     }
   }
   run(){
+    if(this.halt) return;
     let guard=0;
     while(this.winner==null && this.queue.length && guard++<500){
       const t=this.queue.shift();
+      if(t.type==='trapPause'){ if(this.uiPause){ this.halt=true; return; } continue; }
       const r=this.exec(t);
       if(r==='wait'){ this.pending=t; this.pendingInfo=this._lastAsk; return; }
     }
   }
+  // v3.7.2: 罠の発動時に一時停止（画面で罠の公開を見せてから効果と戦闘を解決するため）
+  resume(){ if(!this.halt) return; this.halt=false; this.run(); }
   ask(pi, pending){ this._lastAsk=pending; const f=this.choosers[pi]; if(!f) return undefined; return f(this,pending); }
   provideChoice(choice){
     if(!this.pending) return false;
@@ -2254,7 +2258,7 @@ function renderTitle(){
    +'<button id="btnOnline">オンライン対戦（部屋コード）</button>'
    +(loadOnline()?'<button id="btnOnlineResume">オンライン対戦を再開（部屋 '+esc(loadOnline().code)+'）</button>':'')
    +'<button id="btnCodex">カードリスト（図鑑）</button>'
-   +'</div><div class="sub" style="margin-top:28px;font-size:11px">v3.7.1 — CPU戦・'+AN.CARDS.length+'種プール</div></div>';
+   +'</div><div class="sub" style="margin-top:28px;font-size:11px">v3.8 — CPU戦・'+AN.CARDS.length+'種プール</div></div>';
   s.querySelector('#btnNew').onclick=()=>show('setup');
   s.querySelector('#btnCodex').onclick=()=>show('codex');
   s.querySelector('#btnOnline').onclick=()=>show('lobby');
@@ -2363,13 +2367,14 @@ function startGame(){
   const boss=series.boss? AN.BOSSES.find(b=>b.key===series.boss) : null;
   game=new AN.Game({seed:series.seed+':g'+series.gameNo, decks, names:['あなた', boss?boss.name:'CPU'], first, mains:series.mains||[null,null], choosers:[null, AN.AI.chooser(series.level)],
     lifes: boss?[0,boss.life]:null, bossRules: boss&&boss.special==='anomaly'?[null,{chaos:true}]:null, leaders: boss?[null,boss.leader]:null, energyBonus: boss?[0,boss.energy]:null});
+  game.uiPause=true;
   ui.attackFrom=null; evSeen=0; ui.mullSel=new Set();
   game.mulligan(game.players[1], AN.AI.mullPick(game,1));
   show('battle'); scheduleCpu();
 }
 function scheduleCpu(){
   clearTimeout(cpuTimer);
-  if(!game||series.online||game.winner!=null||game.pending||game.active!==1||game.phase==='mulligan') return;
+  if(!game||series.online||game.winner!=null||game.pending||game.halt||game.active!==1||game.phase==='mulligan') return;
   cpuTimer=setTimeout(()=>{ if(!game||ui.screen!=='battle') return; const a=AN.AI.step(game, series.level); renderBattle(); if(a) scheduleCpu(); else scheduleCpu(); },  620);
 }
 function mechTxt(p){ switch(p.main){ case 'flare': return '連撃'+p.plays; case 'tide': return 'スペル'+p.spellsCast; case 'grow': return p.energyMax>=7?'繁茂中':'繁茂まで'+(7-p.energyMax); case 'ray': return '祈り'+p.pray; case 'void': return '供物'+p.souls; } return ''; }
@@ -2387,12 +2392,13 @@ function nextReveal(){
   el.querySelector('.rv-card').appendChild(cardEl(r.d,{big:true}));
   }
   document.body.appendChild(el);
-  let done=false; const close=()=>{ if(done) return; done=true; el.classList.add('out'); setTimeout(()=>{ el.remove(); nextReveal(); }, 300); };
+  let done=false; const close=()=>{ if(done) return; done=true; el.classList.add('out'); setTimeout(()=>{ el.remove(); if(r.d.isTrap && game && game.halt && !revealQ.some(x=>x.d.isTrap)){ game.resume(); if(ui.screen==='battle') afterAction(); } nextReveal(); }, 300); };
   el.onclick=close; setTimeout(close, r.d.legend?4200:2800);
 }
 function afterAction(){ renderBattle(); scheduleCpu(); }
 function applyAction(g, a, p){
   const pl=g.players[p]; if(!pl) return;
+  if(g.halt) g.resume();
   switch(a.t){
     case 'play': { const c=pl.hand.find(x=>x.uid===a.uid); if(c) g.play(pl,c); break; }
     case 'attack': { const cr=g.findCr(a.uid); if(cr) g.attack(pl,cr,a.target); break; }
@@ -2404,6 +2410,7 @@ function applyAction(g, a, p){
   }
 }
 function doAct(a){
+  if(game && game.halt && !(series&&series.online)) return;
   if(series && series.online){ onlineSend(a); return; }
   applyAction(game, a, ui.me); afterAction();
 }
@@ -2731,6 +2738,7 @@ function onlineStartGame(n, gd){
   const names=[room.players[0].name, room.players[1].name];
   series.playingNo=n;
   game=new AN.Game({seed:series.seed+':g'+n, decks, names, first, mains, choosers:[null,null]});
+  game.uiPause=true;
   ui.attackFrom=null; evSeen=0; appliedN=0; ui.mullSel=new Set();
   if(actUnsub) actUnsub();
   show('battle');
@@ -2818,7 +2826,7 @@ function renderAdvStart(){
 function advHeader(){
   const a=advArea(); const A=a?ADV_AREA[a]:null;
   return '<div class="advhead" style="--ac:'+(a?AN.ATTRS[a].c:'#C58CFF')+'"><div class="an">'+(A?esc(A.name)+' ・ '+(advRun.floor<5?(advRun.floor+1)+'階':'主の間'):'歪みの果て')+'</div><div class="st">♥'+'♥'.repeat(Math.max(0,advRun.hearts-1))+'<span class="lost">'+'♡'.repeat(advRun.maxHearts-advRun.hearts)+'</span>　'+advRun.gold+'G　所持'+advRun.col.length+'枚</div>'
-   +(a?'<div class="buff">強敵との戦いでは、'+AN.ATTRS[a].n+'属性のクリーチャーが+1/+1</div>':'')+'</div>';
+   +(a&&advRun.areaIdx>0?'<div class="buff">強敵との戦いでは、'+AN.ATTRS[a].n+'属性のクリーチャーが+1/+1</div>':(a?'<div class="buff">最初の地域では、まだ地域の力は働かない</div>':''))+'</div>';
 }
 // ---------- 画面：地図（分かれ道） ----------
 function renderAdvMap(){
@@ -2852,6 +2860,17 @@ function advMakeEnemy(kind, strong){
     return { name:'万象喰らい ザルヴァ＝ネクス', attr:'void', life:30, leader:null, energy:0, level:3, deck, final:true, secret:true, kind };
   }
   const A=ADV_AREA[a];
+  // v3.8: 最初の地域は、敵も初期デッキと同じ作り方（ランダムなコモン中心・選り好みなし）にし、階が進むほど少しずつ強くする
+  if(advRun.areaIdx===0 && !strong){
+    const floor=advRun.floor;
+    const cc=advPool(a,['C']), cu=advPool(a,['U']), nc=advPool(null,['C']);
+    const nu = kind==='elite'?4:(kind==='boss'?3:Math.round(2*Math.min(1,floor/5)));
+    const deck=[]; for(let k=0;k<30-nu-8;k++) deck.push(rng.pick(cc)); for(let k=0;k<nu;k++) deck.push(rng.pick(cu)); for(let k=0;k<8;k++) deck.push(rng.pick(nc));
+    if(kind==='elite') deck[0]=AN.makeAnomaly(rng,701,null);
+    const life = kind==='battle' ? 16+Math.floor(floor/2) : 20;
+    const level = kind==='battle' ? (floor<=2?1:2) : (kind==='boss'?3:2);
+    return { name: kind==='boss'?A.boss:(kind==='elite'?A.elite:rng.pick(A.enemies)), attr:a, life, leader: kind==='boss'?A.bossLeader:null, energy:0, level, deck, kind };
+  }
   // v3.5: 地域の主は通常戦闘と同じデッキ強度・ライフで、リーダー能力だけが強化されている
   const tiers={battle:[['C'],['C','U'],['C','U','R']], elite:[['C','U'],['C','U','R'],['C','U','R','L']], boss:[['C'],['C','U'],['C','U','R']]}[kind][ai];
   let pool=[]; AN.CARDS.forEach(d=>{ if((d.attr.includes(a)||d.attr.length===0) && tiers.includes(d.rarity)) pool.push(d); });
@@ -2885,7 +2904,7 @@ function advRewardPicks(rk, rng){
 function renderAdvAnte(){
   const P=advRun.pending; if(!P){ show('advMap'); return; }
   const s=screenEl('advAnte');
-  const a=P.en.attr; const buff = a && P.kind==='elite';
+  const a=P.en.attr; const buff = a && P.kind==='elite' && advRun.areaIdx>0;
   s.innerHTML=advHeader()+'<div class="scroll wrap" style="text-align:center">'
    +'<div class="advfoe" style="--ac:'+(a?AN.ATTRS[a].c:'#C58CFF')+'"><span class="ico">'+AN.iconSvg({i:P.kind==='boss'?'crown':(P.en.strong?'knight':(P.kind==='elite'?'helm':(P.en.final?'darkcrown':'soldier')))})+'</span><div><div class="fn">'+esc(P.en.name)+'</div><div class="sub">'
    +(P.en.secret?'最終決戦 ・ その力は計り知れない':(({battle:'',elite:'強敵 ・ ',boss:'地域の主 ・ ',final:'最終決戦 ・ '}[P.kind])+(P.en.strong?'さすらいの強者 ・ ':'')+'ライフ'+P.en.life+(P.en.leader?' ・ 能力「'+esc(AN.LEADER_EX[P.en.leader].name)+'」':'')))+'</div></div></div>'
@@ -2899,12 +2918,13 @@ function advFight(){
   const P=advRun.pending; if(!P) return;
   advEnsureDeck();
   const myDefs=advDeckDefs(); const myMain=advMain(myDefs);
-  const a=advArea(); const buffOn = a && P.kind==='elite';
+  const a=advArea(); const buffOn = a && P.kind==='elite' && advRun.areaIdx>0;
   series={ adv:true, online:null, boss:null, level:P.en.level, wins:[0,0], gameNo:1, format:1, mains:[myMain,P.en.attr], pools:[[],[]], decks:[[],[]] };
   ui.me=0;
   game=new AN.Game({ seed:advRun.seed+':g'+advRng('g')(), decks:[myDefs, P.en.deck], names:['あなた', P.en.name], mains:[myMain, P.en.attr], choosers:[null, AN.AI.chooser(P.en.level)],
     lifes:[0,P.en.life], leaders:[null,P.en.leader], energyBonus:[0,P.en.energy], fieldBuff: buffOn?{attr:a,n:1}:null, bossRules: P.en.final?[null,{devour:true, phase:15}]:null });
   if(buffOn) game.say('この地の力：'+AN.ATTRS[a].n+'属性のクリーチャーは+1/+1','turn');
+  game.uiPause=true;
   ui.attackFrom=null; evSeen=0; ui.mullSel=new Set();
   game.mulligan(game.players[1], AN.AI.mullPick(game,1));
   advRun.stage='battle'; advSave();

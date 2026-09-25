@@ -174,6 +174,12 @@ input[type=text]{background:var(--panel);border:1px solid var(--line);color:var(
 .advscene .et{font-weight:700;font-size:18px}
 .evmsg{margin:10px 0;font-size:15px}
 .pcard .price{position:absolute;left:0;right:0;bottom:-8px;text-align:center;font-size:11px;font-family:var(--disp);color:#FFD86B;text-shadow:0 1px 2px #000}
+.zone{display:flex;gap:6px;flex-wrap:wrap;padding:0 10px;justify-content:flex-end}
+.zone:empty{display:none}
+.zchip{display:flex;align-items:center;gap:4px;padding:3px 8px;border-radius:8px;font-size:11px;background:var(--panel);border:1px solid var(--line)}
+.zchip svg{width:16px;height:16px;color:#C58CFF}
+.zchip b{margin-left:4px;font-family:var(--disp);color:#FFD86B}
+.zchip.trap{border-style:dashed;color:#f2b38f}
 .helpbtn{padding:4px 10px;font-family:var(--disp);font-size:13px;border-radius:8px}
 .overlay.center .sheet{max-height:94%}
 .sheet .btns{display:flex;gap:8px;margin-top:14px}
@@ -283,6 +289,8 @@ const ef = (t,e,o)=>Object.assign({t,e},o||{});
 // 属性ごとの看板メカニクス：炎=連撃（このターンに他のカードをN枚プレイ済み）、水=詠唱（手札にある間、スペルを唱えるたびに強化）、
 // 森=繁茂（最大エナジー7以上）、光=祈り（このゲームで回復した回数）、闇=供物（墓地に送られた自分のカード数を消費）
 function K(id,name,attr,cost,rarity,kw,effects,o){ return Object.assign({id,name,attr:attr==='none'?[]:[attr],type:'creature',cost,rarity,kw:kw||[],effects:effects||[],power:0,hp:0},o||{}); }
+function R_(id,name,attr,cost,rarity,effects,o){ return Object.assign({id,name,attr:attr==='none'?[]:[attr],type:'relic',cost,rarity,kw:[],effects:effects||[],power:0,hp:0},o||{}); }
+function T_(id,name,attr,cost,rarity,effects,o){ return Object.assign({id,name,attr:attr==='none'?[]:[attr],type:'trap',cost,rarity,kw:[],effects:effects||[],power:0,hp:0},o||{}); }
 function P(id,name,attr,cost,rarity,effects,o){ return Object.assign({id,name,attr:attr==='none'?[]:[attr],type:'spell',cost,rarity,kw:[],effects:effects||[],power:0,hp:0},o||{}); }
 const R1=(o)=>Object.assign({},o);
 const CARDS = [
@@ -476,6 +484,34 @@ K('N21','英雄','none',5,'R',[],[ef('etb','pumpAll',{n:1})],{i:'crown'}),
 K('N22','古代の巨像','none',8,'R',[],[],{i:'tusk',costFn:'allies'}),
 K('N23','軍師','none',2,'U',[],[ef('etb','addCard',{card:'plan',n:1})],{i:'scroll'}),
 P('N24','運命の一枚','none',1,'R',[ef('cast','randomCard',{})],{i:'star'}),
+// ---- v3.3 追加：シナジーを軸にしたカード・置物・罠 ----
+K('F50','火花の祭司','flare',3,'U',[],[ef('summon','damage',{n:1})],{i:'candle'}),
+P('F51','焔の行進','flare',4,'U',[ef('cast','randomDmg',{n:0,scale:'field',k:1,max:7})],{i:'banner'}),
+R_('F52','燃える戦旗','flare',2,'C',[ef('turnstart','damage',{n:1}),ef('expire','damage',{n:3})],{i:'banner',countdown:3}),
+T_('F53','爆炎の罠','flare',2,'C',[ef('enemyAttack','dmg',{n:3})],{i:'explosion'}),
+K('T50','知恵の番人','tide',3,'C',[],[ef('draw','pumpSelf',{n:1})],{i:'book'}),
+P('T51','奔流','tide',5,'R',[ef('cast','dmg',{n:0,scale:'spells',k:1,max:10})],{i:'bigwave',sb:'cost'}),
+K('T52','泡の群れ','tide',3,'C',[],[ef('etb','tokens',{n:1,tok:'tide'}),ef('spell','tokens',{n:1,tok:'tide'})],{i:'bubbles'}),
+R_('T53','叡智の塔','tide',3,'U',[ef('spell','draw',{n:1})],{i:'pillar',countdown:3}),
+T_('T54','渦の罠','tide',2,'C',[ef('enemyAttack','bounce',{})],{i:'swirl'}),
+K('G50','群生の母','grow',5,'U',[],[ef('endturn','tokens',{n:1,tok:'grow'})],{i:'treant'}),
+P('G51','森の大合唱','grow',5,'U',[ef('cast','pumpAll',{n:1}),ef('cast','pumpAll',{n:1,req:{allies:5}})],{i:'roar'}),
+K('G52','傷を負った獣','grow',4,'C',[],[ef('damaged','pumpSelf',{n:1})],{i:'bear'}),
+R_('G53','豊穣の祭壇','grow',3,'U',[ef('turnstart','pumpRandomAlly',{n:1})],{i:'wheat',countdown:4}),
+T_('G54','茨の罠','grow',2,'C',[ef('enemySummon','dmg',{n:3})],{i:'vine'}),
+K('R50','羽の司令','ray',3,'U',[],[ef('static','aura',{n:1,kwf:'blocker'})],{i:'wings'}),
+K('R51','祝福の鐘','ray',2,'C',[],[ef('heal','tokens',{n:1,tok:'ray'})],{i:'bell'}),
+P('R52','奇跡','ray',6,'R',[ef('cast','heal',{n:0,scale:'pray',k:1,max:12}),ef('cast','pumpAll',{n:1})],{i:'sun'}),
+R_('R53','聖域の結界','ray',3,'C',[ef('endturn','heal',{n:2})],{i:'halo',countdown:4}),
+T_('R54','審判の罠','ray',3,'C',[ef('enemySummon','tap',{})],{i:'scales'}),
+K('V50','魂の収穫者','void',3,'U',[],[ef('allyDeath','damage',{n:1})],{i:'scythe'}),
+P('V51','死者の行進','void',5,'U',[ef('cast','tokens',{n:0,tok:'void',scale:'fallen',k:1,max:5})],{i:'bones'}),
+K('V52','死肉喰らい','void',3,'C',[],[ef('enemyDeath','pumpSelf',{n:1})],{i:'bat'}),
+R_('V53','呪いの祭壇','void',3,'U',[ef('allyDeath','weakenRandom',{n:1})],{i:'tomb'}),
+T_('V54','道連れの罠','void',3,'U',[ef('enemyAttack','destroy',{}),ef('enemyAttack','lifecost',{n:3})],{i:'skull'}),
+R_('N50','古い軍旗','none',4,'U',[ef('static','aura',{n:1})],{i:'banner',countdown:3}),
+T_('N51','対抗呪文の罠','none',3,'U',[ef('enemySpell','counter',{})],{i:'mirror'}),
+P('N52','集結の号笛','none',3,'C',[ef('cast','tokens',{n:1,tok:'none'}),ef('cast','buffAll',{n:1,req:{allies:4}})],{i:'bell'}),
 // ---- v2.4 追加：リーダー能力を書き換えるカード ----
 K('F40','炎帝の後継者','flare',6,'R',[],[ef('etb','setLeader',{leader:'inferno'})],{i:'crown'}),
 P('T40','潮の王冠','tide',4,'R',[ef('cast','setLeader',{leader:'deeptide'}),ef('cast','draw',{n:1})],{i:'trident'}),
@@ -526,7 +562,7 @@ K('T36','氷壁の番人','tide',4,'U',['blocker'],[ef('etb','freeze',{})],{i:'s
 const CARD_BY_ID = {}; CARDS.forEach(c=>CARD_BY_ID[c.id]=c);
 
 // ---- effect text ----
-const TRIG = { etb:'登場時：', atk:'攻撃時：', death:'破壊時：', cast:'', turnstart:'自分のターン開始時：', oppturnstart:'相手のターン開始時：', static:'', endturn:'自分のターン終了時：', spell:'自分がスペルを唱えるたび：', ability:'リーダー能力を使うたび：', heal:'自分のライフが回復するたび：', allyDeath:'自分の他のクリーチャーが破壊されるたび：', summon:'自分がこのクリーチャー以外のクリーチャーを出すたび：', play:'自分がこのカード以外のカードをプレイするたび：', handturn:'手札にある間、自分のターン開始時：' };
+const TRIG = { etb:'登場時：', atk:'攻撃時：', death:'破壊時：', cast:'', turnstart:'自分のターン開始時：', oppturnstart:'相手のターン開始時：', static:'', endturn:'自分のターン終了時：', spell:'自分がスペルを唱えるたび：', ability:'リーダー能力を使うたび：', heal:'自分のライフが回復するたび：', allyDeath:'自分の他のクリーチャーが破壊されるたび：', summon:'自分がこのカード以外のクリーチャーを出すたび（トークンを含む）：', play:'自分がこのカード以外のカードをプレイするたび：', draw:'自分がカードを引くたび：', damaged:'このクリーチャーがダメージを受けて生き残るたび：', enemyDeath:'相手のクリーチャーが破壊されるたび：', expire:'カウントダウンが0になって消えるとき：', enemyAttack:'相手のクリーチャーが攻撃したとき：', enemySummon:'相手が手札からクリーチャーを出したとき：', enemySpell:'相手がスペルを唱えたとき：', handturn:'手札にある間、自分のターン開始時：' };
 function condText(o){
   if(o.minPower!=null) return '攻撃力'+o.minPower+'以上の';
   if(o.damaged && o.maxCost!=null) return 'ダメージを受けているコスト'+o.maxCost+'以下の';
@@ -538,8 +574,8 @@ function condText(o){
   return '';
 }
 function attrName(a){ return a? AN.ATTRS[a].n : ''; }
-function reqText(r){ if(!r) return ''; if(r.combo) return '連撃'+(r.combo>1?r.combo:''); if(r.awaken) return '繁茂'; if(r.pray) return '祈り'+r.pray; if(r.souls) return '供物'+r.souls; if(r.boost) return '詠唱'+r.boost; return ''; }
-const SCALE_N={hands:'お互いの手札の枚数の合計', hand:'自分の手札の枚数', fallen:'このゲームで破壊された自分のクリーチャー', combo:'このターンにプレイした他のカード', boost:'詠唱', pray:'祈り', souls:'供物', spells:'このゲームで唱えたスペル', allies:'自分の他のクリーチャー'};
+function reqText(r){ if(!r) return ''; if(r.combo) return '連撃'+(r.combo>1?r.combo:''); if(r.awaken) return '繁茂'; if(r.pray) return '祈り'+r.pray; if(r.souls) return '供物'+r.souls; if(r.boost) return '詠唱'+r.boost; if(r.allies) return '自分のクリーチャーが'+r.allies+'体以上なら'; return ''; }
+const SCALE_N={field:'自分の場のクリーチャー', hands:'お互いの手札の枚数の合計', hand:'自分の手札の枚数', fallen:'このゲームで破壊された自分のクリーチャー', combo:'このターンにプレイした他のカード', boost:'詠唱', pray:'祈り', souls:'供物', spells:'このゲームで唱えたスペル', allies:'自分の他のクリーチャー'};
 function effectText(x){
   if(x.req||x.bonus||x.scale){
     const y=Object.assign({},x); delete y.req; delete y.bonus; delete y.scale;
@@ -562,6 +598,7 @@ function effectTextBase(x){
       case 'heal': return per+'自分のライフを'+n+'回復する。';
     }
   }
+  if(x.kwf && x.e==='aura') return (x._relic?'自分の':'自分の他の')+KW[x.kwf]+'を持つクリーチャーは+'+n+'/+'+n+'。';
   if(x.attr){
     if(x.e==='aura') return '自分の他の'+attrName(x.attr)+'クリーチャーは+'+n+'/+'+n+'。';
     if(x.e==='buffAll') return '自分の'+attrName(x.attr)+'クリーチャーはすべてターン終了時まで+'+n+'/+'+n+'。';
@@ -587,7 +624,7 @@ function effectTextBase(x){
     case 'buffAll': return '自分のクリーチャーすべて'+(x._cr?'（このクリーチャーを含む）':'')+'に、ターン終了時まで+'+n+'/+'+n+'。';
     case 'pumpSelf': return 'このクリーチャーに+'+n+'/+'+n+'。';
     case 'lifecost': return '自分のライフを'+n+'失う。';
-    case 'aura': return '自分の他のクリーチャーは+'+n+'/+'+n+'。';
+    case 'aura': return (x._relic?'自分のクリーチャーは+':'自分の他のクリーチャーは+')+n+'/+'+n+'。';
     case 'spellTax': return '相手が唱えるスペルのコスト+1。';
     case 'fight': return '自分の場で最も攻撃力の高いクリーチャー'+(n?'が、このときだけ攻撃力+'+n+'して、':'が、')+'相手のクリーチャー1体と戦闘する（お互いにダメージを与え合う）。';
     case 'pumpTarget': return '自分のクリーチャー1体'+(x._cr?'（このクリーチャーも選べる）':'')+'に+'+n+'/+'+n+'（永続）。';
@@ -629,6 +666,9 @@ function effectTextBase(x){
     case 'bigRandom': return '相手のクリーチャーか相手プレイヤーからランダムに1つを選び、'+n+'ダメージ。';
     case 'setLeader': { const L=LEADER_EX[x.leader]; return '自分のリーダー能力を「'+L.name+'」（'+L.cost+'エナジー：'+L.text+'）に変える（このゲーム中ずっと）。'; }
     case 'swapLeader': return '自分と相手のリーダー能力を入れ替える（このゲーム中ずっと）。';
+    case 'counter': return 'そのスペルを打ち消す（効果は発動しない）。';
+    case 'pumpRandomAlly': return '自分のクリーチャーからランダムに1体に+'+n+'/+'+n+'（永続）。';
+    case 'weakenRandom': return '相手のクリーチャーからランダムに1体に-'+n+'/-'+n+'（永続）。';
     case 'randomDmgCr': return 'ランダムな相手のクリーチャー1体に'+n+'ダメージ。';
     case 'pumpAll': return '自分のクリーチャーすべて'+(x._cr?'（このクリーチャーを含む）':'')+'に+'+n+'/+'+n+'（永続）。';
     case 'boostHand': return '自分の手札にある詠唱カードすべての詠唱+'+n+'。';
@@ -684,6 +724,8 @@ function spText(sp){ if(sp.onDraw) return '引くとライフ-'+sp.onDraw.n+'、
 function cardText(d){
   const lines=[];
   if(d.onDraw) lines.push('山札から引いたとき：自分のライフを'+d.onDraw.n+'失う。このカードは消え、代わりにカードを1枚引く。');
+  if(d.type==='relic') lines.push('置物：場に置く（各自3つまで）。攻撃せず、攻撃もされない。'+(d.countdown?'カウントダウン'+d.countdown+'（自分のターン開始時に1減り、0で消える）。':''));
+  if(d.type==='trap') lines.push('罠：伏せて置く（各自2つまで）。相手には中身が見えない。条件を満たすと一度だけ発動して墓地へ。');
   if(d.sb==='cost') lines.push('詠唱：手札にある間、自分がスペルを唱えるたびコスト-1。');
   if(d.sb==='grow'||d.sb==='flag') lines.push('詠唱：手札にある間、自分がスペルを唱えるたび詠唱+1。');
   if(d.costFn==='allies') lines.push('自分の場のクリーチャー1体につきコスト-1。');
@@ -697,8 +739,8 @@ function cardText(d){
   }
   // group effects by trigger keeping order
   const seen={}; const order=[];
-  d.effects.forEach(x=>{ if(!seen[x.t]){seen[x.t]=[];order.push(x.t);} seen[x.t].push(effectText(Object.assign({_cr:d.type==='creature'},x.per?{attrRef:d.attr[0]}:{},x))); });
-  order.forEach(t=>lines.push(TRIG[t]+seen[t].join('')));
+  d.effects.forEach(x=>{ if(!seen[x.t]){seen[x.t]=[];order.push(x.t);} seen[x.t].push(effectText(Object.assign({_cr:d.type==='creature', _relic:d.type==='relic'},x.per?{attrRef:d.attr[0]}:{},x)).replace(/^相手のクリーチャー1体(に|を)/, d.type==='trap'?'そのクリーチャー$1':'相手のクリーチャー1体$1')); });
+  order.forEach(t=>lines.push((d.type==='relic'?TRIG[t].replace('自分の他のクリーチャー','自分のクリーチャー').replace('このカード以外の',''):TRIG[t])+seen[t].join('')));
   return lines;
 }
 
@@ -1099,7 +1141,7 @@ class Game {
     this.mains = opts.mains || [null,null];
     this.choosers = opts.choosers || [null,null];
     this.players = [0,1].map(i=>({
-      i, name:this.names[i], life:LIFE, hand:[], energy:0, energyMax:0, field:[], grave:[], abilityUsed:false, main:(opts.mains||[])[i]||null, plays:0, spellsCast:0, pray:0, souls:0, bonusNext:0,
+      i, name:this.names[i], life:LIFE, hand:[], energy:0, energyMax:0, field:[], grave:[], abilityUsed:false, relics:[], traps:[], main:(opts.mains||[])[i]||null, plays:0, spellsCast:0, pray:0, souls:0, bonusNext:0,
       deck: this.rng.shuffle(opts.decks[i].map(d=>this.inst(d))),
     }));
     this.turn = 0; this.active = opts.first==null ? this.rng.int(2) : opts.first;
@@ -1148,7 +1190,8 @@ class Game {
     let p = (cr.fixed!=null ? cr.fixed : base + cr.pump) * (cr.mult||1) + cr.tmp;
     if(this.fieldBuff && cr.c.d.attr.includes(this.fieldBuff.attr)) p+=this.fieldBuff.n;
     cr.equips.forEach(e=>p+=e.d.equip.power);
-    if(owner) owner.field.forEach(o=>{ if(o!==cr) this.effs(o).forEach(x=>{ if(x.t==='static'&&x.e==='aura'&&(!x.attr||cr.c.d.attr.includes(x.attr))) p+=x.n; }); });
+    if(owner) owner.field.forEach(o=>{ if(o!==cr) this.effs(o).forEach(x=>{ if(x.t==='static'&&x.e==='aura'&&(!x.attr||cr.c.d.attr.includes(x.attr))&&(!x.kwf||this.hasKw(cr,x.kwf))) p+=x.n; }); });
+    if(owner) owner.relics.forEach(r=>r.c.d.effects.forEach(x=>{ if(x.t==='static'&&x.e==='aura'&&(!x.attr||cr.c.d.attr.includes(x.attr))&&(!x.kwf||this.hasKw(cr,x.kwf))) p+=x.n; }));
     return Math.max(0,p);
   }
   health(cr){ return this.maxHealth(cr)-cr.dmg; }
@@ -1165,6 +1208,7 @@ class Game {
       const c=p.deck.pop();
       if(c.d.onDraw){ this.say(p.name+'は「'+c.d.name+'」を引いた！（代わりにもう1枚引く）','life'); this.loseLife(p,c.d.onDraw.n,'「'+c.d.name+'」'); i--; continue; }
       p.hand.push(c);
+      if(this.phase!=='mulligan') this.trigger(p,'draw',null);
     }
     if(!silent) this.say(p.name+'はカードを'+n+'枚引いた', 'draw');
   }
@@ -1177,12 +1221,14 @@ class Game {
   gainLife(p,n){ if(n<=0)return; p.life=Math.min(99,p.life+n); p.pray++; this.ev('life',{p:p.i,n}); this.say(p.name+'のライフ +'+n+'（祈り'+p.pray+'）', 'heal');
     this.trigger(p,'heal',null); }
   // fire a trigger for creatures on p's field (except 'except' creature card)
-  trigger(p, t, exceptCard){ p.field.slice().forEach(c=>{ if(exceptCard && c.c===exceptCard) return; this.effs(c).forEach(x=>{ if(x.t===t) this.queue.push({type:'effect',p:p.i,src:c.c,eff:x}); }); }); }
+  trigger(p, t, exceptCard){ p.field.slice().forEach(c=>{ if(exceptCard && c.c===exceptCard) return; this.effs(c).forEach(x=>{ if(x.t===t) this.queue.push({type:'effect',p:p.i,src:c.c,eff:x}); }); }); p.relics.slice().forEach(r=>{ if(exceptCard && r.c===exceptCard) return; r.c.d.effects.forEach(x=>{ if(x.t===t) this.queue.push({type:'effect',p:p.i,src:r.c,eff:x}); }); }); }
+  fireTraps(owner, kind, targetUid){ const fired=owner.traps.filter(c=>c.d.effects.some(x=>x.t===kind)); fired.forEach(c=>{ owner.traps.splice(owner.traps.indexOf(c),1); owner.grave.push(c); c.d.revealed=true; this.say(owner.name+'の罠「'+c.d.name+'」が発動した！','play'); this.ev('trap',{p:owner.i,d:c.d}); c.d.effects.forEach(x=>{ if(x.t===kind) this.queue.push({type:'effect',p:owner.i,src:c,eff:x,choice:targetUid===undefined?undefined:targetUid}); }); }); return fired; }
   reqOk(p, req, t, consume){
     if(!req) return true;
     if(req.combo!=null){ const c = t&&t.snap ? t.snap.combo : p.plays; if(c<req.combo) return false; }
     if(req.awaken && p.energyMax<7) return false;
     if(req.pray!=null && p.pray<req.pray) return false;
+    if(req.allies!=null && p.field.length<req.allies) return false;
     if(req.boost!=null && !((t&&t.src&&t.src.boost||0)>=req.boost)) return false;
     if(req.souls!=null){ if(p.souls<req.souls) return false; if(consume){ p.souls-=req.souls; this.say(p.name+'は供物を'+req.souls+'消費した（残り'+p.souls+'）'); } }
     return true;
@@ -1198,6 +1244,7 @@ class Game {
       case 'hands': return p.hand.length+this.opp(p).hand.length;
       case 'fallen': return p.fallen||0;
       case 'allies': return p.field.filter(c=>!t||c.c!==t.src).length;
+      case 'field': return p.field.length;
     }
     return 0;
   }
@@ -1229,6 +1276,7 @@ class Game {
     p.field.slice().forEach(c=>this.effs(c).forEach(x=>{ if(x.t==='turnstart') this.queue.push({type:'effect',p:p.i,src:c.c,eff:x}); }));
     const o=this.opp(p); o.field.slice().forEach(c=>this.effs(c).forEach(x=>{ if(x.t==='oppturnstart') this.queue.push({type:'effect',p:o.i,src:c.c,eff:x}); }));
     p.hand.slice().forEach(c=>c.d.effects.forEach(x=>{ if(x.t==='handturn') this.queue.push({type:'effect',p:p.i,src:c,eff:x}); }));
+    p.relics.slice().forEach(r=>{ r.c.d.effects.forEach(x=>{ if(x.t==='turnstart') this.queue.push({type:'effect',p:p.i,src:r.c,eff:x}); }); if(r.cd!=null){ r.cd--; if(r.cd<=0){ p.relics.splice(p.relics.indexOf(r),1); p.grave.push(r.c); this.say('置物「'+r.c.d.name+'」のカウントダウンが0になり消えた'); r.c.d.effects.forEach(x=>{ if(x.t==='expire') this.queue.push({type:'effect',p:p.i,src:r.c,eff:x}); }); } } });
     this.run();
   }
   endTurn(){
@@ -1236,6 +1284,7 @@ class Game {
     const p=this.players[this.active];
     if(this.pending) return false;
     p.field.forEach(c=>this.effs(c).forEach(x=>{ if(x.t==='endturn') this.queue.push({type:'effect',p:p.i,src:c.c,eff:x}); }));
+    p.relics.forEach(r=>r.c.d.effects.forEach(x=>{ if(x.t==='endturn') this.queue.push({type:'effect',p:p.i,src:r.c,eff:x}); }));
     this.queue.push({type:'endturn'});
     this.run(); return true;
   }
@@ -1248,7 +1297,7 @@ class Game {
   }
 
   // ---- cost ----
-  costOf(p, d, card){ let c=Math.max(0,d.cost-((card&&card.cm)||0)-(d.sb==='cost'&&card?(card.boost||0):0)); if(d.costFn==='allies') c=Math.max(0,c-p.field.length); if(d.costFn==='oppHand') c=this.opp(p).hand.length; if(d.type==='spell'){ this.opp(p).field.forEach(o=>this.effs(o).forEach(x=>{ if(x.t==='static'&&x.e==='spellTax') c++; })); } return c; }
+  costOf(p, d, card){ let c=Math.max(0,d.cost-((card&&card.cm)||0)-(d.sb==='cost'&&card?(card.boost||0):0)); if(d.type==='spell') this.opp(p).relics.forEach(r=>r.c.d.effects.forEach(x=>{ if(x.t==='static'&&x.e==='spellTax') c++; })); if(d.costFn==='allies') c=Math.max(0,c-p.field.length); if(d.costFn==='oppHand') c=this.opp(p).hand.length; if(d.type==='spell'){ this.opp(p).field.forEach(o=>this.effs(o).forEach(x=>{ if(x.t==='static'&&x.e==='spellTax') c++; })); } return c; }
   canAfford(p, d, card){ return this.costOf(p,d,card)<=p.energy; }
   canPlay(p, card){
     if(this.winner!=null||this.pending||this.players[this.active]!==p) return false;
@@ -1256,6 +1305,8 @@ class Game {
     const d=card.d;
     if(d.type==='creature' && p.field.length>=FIELD_MAX) return false;
     if(d.type==='equip' && p.field.length===0) return false;
+    if(d.type==='relic' && p.relics.length>=3) return false;
+    if(d.type==='trap' && (p.traps.length>=2 || p.traps.some(c=>c.d.id===d.id))) return false;
     if(d.type==='spell' && !this.spellHasUse(p,d)) return false;
     return this.canAfford(p,d,card);
   }
@@ -1275,13 +1326,20 @@ class Game {
     if(d.type==='creature'){
       const cr=this.mkCr(card);
       p.field.push(cr); this.say(p.name+'は「'+d.name+'」を召喚（エナジー'+paid+'）','play'); this.ev('play',{p:p.i,uid:card.uid,d:card.d});
+      this.fireTraps(this.opp(p),'enemySummon',card.uid);
       d.effects.forEach(x=>{ if(x.t==='etb') this.queue.push({type:'effect',p:p.i,src:card,eff:x,snap}); });
       this.trigger(p,'summon',card);
     } else if(d.type==='spell'){
       this.say(p.name+'は「'+d.name+'」を唱えた（エナジー'+paid+'）','play'); this.ev('play',{p:p.i,uid:card.uid,d:card.d});
-      d.effects.forEach(x=>{ if(x.t==='cast') this.queue.push({type:'effect',p:p.i,src:card,eff:x,snap}); });
+      const countered=this.fireTraps(this.opp(p),'enemySpell').some(c=>c.d.effects.some(x=>x.e==='counter'));
+      if(countered) this.say('「'+d.name+'」は打ち消された','destroy');
+      else d.effects.forEach(x=>{ if(x.t==='cast') this.queue.push({type:'effect',p:p.i,src:card,eff:x,snap}); });
       this.queue.push({type:'toGrave',p:p.i,card});
       p.spellsCast++; this.boostHand(p,1); this.trigger(p,'spell',null);
+    } else if(d.type==='relic'){
+      p.relics.push({c:card, cd:d.countdown||null}); this.say(p.name+'は置物「'+d.name+'」を置いた（エナジー'+paid+'）','play'); this.ev('play',{p:p.i,uid:card.uid,d});
+    } else if(d.type==='trap'){
+      p.traps.push(card); this.say(p.name+'は罠を仕掛けた（エナジー'+paid+'）','play');
     } else if(d.type==='equip'){
       this.say(p.name+'は「'+d.name+'」を装備（エナジー'+paid+'）','play'); this.ev('play',{p:p.i,uid:card.uid,d:card.d});
       this.queue.push({type:'equip',p:p.i,card});
@@ -1336,6 +1394,7 @@ class Game {
     const tgtName = target==='player' ? this.opp(p).name : '「'+this.findCr(target).c.d.name+'」';
     this.say(p.name+'の「'+cr.c.d.name+'」が'+tgtName+'に攻撃','attack'); this.ev('attack',{p:p.i,uid:cr.c.uid,target});
     this.attackCtx={attacker:cr, target, p:p.i, blocker:null};
+    this.fireTraps(this.opp(p),'enemyAttack',cr.c.uid);
     this.effs(cr).forEach(x=>{ if(x.t==='atk') this.queue.push({type:'effect',p:p.i,src:cr.c,eff:x}); });
     this.queue.push({type:'block'}); this.queue.push({type:'combat'});
     this.run(); return true;
@@ -1377,6 +1436,7 @@ class Game {
     if(n<=0) return;
     if(this.hasKw(cr,'armor') && !cr.armorUsed){ cr.armorUsed=true; this.say('「'+cr.c.d.name+'」の装甲が'+n+'ダメージを防いだ'); return; }
     cr.dmg+=n;
+    if(this.health(cr)>0 && !(src && this.hasKw(src,'deathtouch'))){ const q=this.owner(cr); if(q) this.effs(cr).forEach(x=>{ if(x.t==='damaged') this.queue.push({type:'effect',p:q.i,src:cr.c,eff:x}); }); }
     if(src && this.hasKw(src,'deathtouch') && this.health(cr)>0){ cr.dmg=this.maxHealth(cr); this.say('「'+cr.c.d.name+'」に猛毒がまわった','battle'); } this.ev('dmg',{uid:cr.c.uid,n});
     this.say('「'+cr.c.d.name+'」に'+n+'ダメージ（体力 '+Math.max(0,this.health(cr))+'/'+this.maxHealth(cr)+'）','battle');
     if(check!==false) this.checkDeaths();
@@ -1392,6 +1452,7 @@ class Game {
     p.souls++;
     this.say('「'+cr.c.d.name+'」は破壊された','destroy'); this.ev('destroy',{p:p.i,uid:cr.c.uid});
     this.trigger(p,'allyDeath',cr.c);
+    this.trigger(this.opp(p),'enemyDeath',null);
     this.effs(cr).forEach(x=>{ if(x.t==='death') this.queue.push({type:'effect',p:p.i,src:cr.c,eff:x}); });
   }
   destroy(cr){
@@ -1490,7 +1551,7 @@ class Game {
       case 'resetAll': { [p,o].forEach(q=>q.field.slice().forEach(c=>this.bounce(c))); break; }
       case 'graveSteal': { const cs=o.grave.filter(c=>c.d.type==='creature'&&!c.d.token).sort((a,b)=>b.d.cost-a.d.cost); if(cs.length && p.field.length<FIELD_MAX){ const c=cs[0]; o.grave.splice(o.grave.indexOf(c),1); p.field.push(this.mkCr(c)); this.say(p.name+'は相手の墓地から「'+c.d.name+'」を奪った','play'); } break; }
       case 'silenceAll': { o.field.forEach(c=>{ c.silenced=true; c.grants=[]; }); this.say(o.name+'のクリーチャーは能力を失った','play'); break; }
-      case 'tokens': { const tok=AN.TOKENS[x.tok||'none']; const q=x.opp?o:p; let k=0; for(let i=0;i<n;i++){ if(q.field.length>=FIELD_MAX) break; q.field.push(this.mkCr(this.inst(tok))); k++; } this.say(q.name+'の場に「'+tok.name+'」が'+k+'体出た','play'); break; }
+      case 'tokens': { const tok=AN.TOKENS[x.tok||'none']; const q=x.opp?o:p; let k=0; for(let i=0;i<n;i++){ if(q.field.length>=FIELD_MAX) break; q.field.push(this.mkCr(this.inst(tok))); k++; } this.say(q.name+'の場に「'+tok.name+'」が'+k+'体出た','play'); for(let i=0;i<k;i++) this.trigger(q,'summon',null); break; }
       case 'discover': { const o2=t.opts[t.choice]; if(o2){ p.hand.push(this.inst(o2.d)); this.say(p.name+'は「'+o2.d.name+'」を発見した','draw'); } break; }
       case 'scry': { const o2=t.opts[t.choice]; if(o2){ const i=p.deck.indexOf(o2.card); if(i>=0) p.deck.splice(i,1); if(x.discount) o2.card.cm=(o2.card.cm||0)+x.discount; p.hand.push(o2.card); t.opts.forEach(z=>{ if(z!==o2){ const j=p.deck.indexOf(z.card); if(j>=0){ p.deck.splice(j,1); p.deck.unshift(z.card); } } }); this.say(p.name+'は山札から「'+o2.d.name+'」を手札に加え、残りを下に置いた','draw'); } break; }
       case 'randomDmg': { for(let i=0;i<n;i++){ const tg=['player'].concat(o.field.filter(c=>this.health(c)>0)); const pick=tg[this.rng.int(tg.length)]; if(pick==='player') this.loseLife(o,1,t.src.d.name); else this.dealDamage(pick,1); if(this.winner!=null) break; } break; }
@@ -1516,6 +1577,9 @@ class Game {
       case 'bigRandom': { const tg=['player'].concat(o.field.filter(c=>this.health(c)>0)); const pick=tg[this.rng.int(tg.length)]; if(pick==='player') this.loseLife(o,n,t.src.d.name); else this.dealDamage(pick,n); break; }
       case 'setLeader': { p.leaderOverride=AN.LEADER_EX[x.leader]; p.abilityUsed=false; this.say(p.name+'のリーダー能力が「'+p.leaderOverride.name+'」になった','play'); break; }
       case 'swapLeader': { const a=this.leaderDef(p), b=this.leaderDef(o); p.leaderOverride=b; o.leaderOverride=a; this.say('リーダー能力が入れ替わった！（'+p.name+'：'+(b?b.name:'なし')+'／'+o.name+'：'+(a?a.name:'なし')+'）','play'); break; }
+      case 'pumpRandomAlly': { if(p.field.length){ const c=p.field[this.rng.int(p.field.length)]; c.pump+=n; this.say('「'+c.c.d.name+'」に+'+n+'/+'+n); } break; }
+      case 'weakenRandom': { if(o.field.length){ const c=o.field[this.rng.int(o.field.length)]; c.pump-=n; this.say('「'+c.c.d.name+'」に-'+n+'/-'+n,'battle'); this.checkDeaths(); } break; }
+      case 'counter': break;
       case 'randomDmgCr': { const cs=o.field.filter(c=>this.health(c)>0); if(cs.length) this.dealDamage(cs[this.rng.int(cs.length)], n); break; }
       case 'pumpAll': { p.field.forEach(c=>c.pump+=n); this.say(p.name+'のクリーチャーすべてに+'+n+'/+'+n,'play'); break; }
       case 'boostHand': { this.boostHand(p,n); this.say(p.name+'の手札の詠唱+'+n); break; }
@@ -1850,6 +1914,10 @@ function step(g, level){
           else s = 9;
         } else if(d.type==='creature' && d.weird){
           d.effects.forEach(x=>{ if(['doubleEnemy','giftAnomaly'].includes(x.e)) s-=6; if(x.e==='setLifeBoth' && !(p.life<13&&o.life>13)) s-=8; if(x.e==='swapEnergy' && o.energyMax<=p.energyMax) s-=4; if(x.e==='swapGraveDeck' && p.deck.length>6) s-=5; if(x.e==='shrinkAll'){ const tp=o.field.reduce((a,c)=>a+g.power(c),0), mp=p.field.reduce((a,c)=>a+g.power(c),0); if(tp<=mp) s-=5; } });
+        } else if(d.type==='relic'){
+          s = AN.cardValue(d) + (d.effects.some(x=>x.e==='aura')? p.field.length : 1);
+        } else if(d.type==='trap'){
+          s = 2.5 + (o.field.length? 1:0);
         } else if(d.type==='equip'){
           s = p.field.some(c=>!c.tapped) ? AN.cardValue(d) : -3;
         } else {
@@ -2028,7 +2096,7 @@ function cardEl(d, o){
   const attrCls=d.attr.length?'a-'+d.attr[0]:'a-none';
   el.className='card '+(d.anomaly?'anom':attrCls)+(o.big?' bigcard':'')+(o.tapped?' tapped':'')+(o.sick?' sick':'')+(o.ready?' ready':'')+(o.target?' target':'')+(o.frozen?' frozen':'')+(o.sel?' sel':'');
   if(o.back){ el.className='card back'+(o.big?' bigcard':''); el.innerHTML='<div class="q">?</div>'; return el; }
-  const typeN={creature:'クリーチャー',spell:'スペル',equip:'装備'}[d.type];
+  const typeN={creature:'クリーチャー',spell:'スペル',equip:'装備',relic:'置物',trap:'罠'}[d.type];
   const attrN=d.attr.length? d.attr.map(a=>AN.ATTRS[a].n+'('+AN.ATTRS[a].k+')').join('/') : '無属性';
   let h='<div class="art">'+AN.iconSvg(d)+'</div><div class="cost">'+(o.cost!=null?o.cost:d.cost)+'</div><div class="rar">'+(d.anomaly?'?':d.rarity)+'</div><div class="name">'+esc(d.name)+'</div>';
   if(o.big){
@@ -2037,7 +2105,7 @@ function cardEl(d, o){
     h+='<div class="text">'+(lines.length?lines.map(esc).join('<br>'):'<span style="color:var(--muted)">（効果なし）</span>')+'</div>';
     if(d.type==='creature') h+=statHtml(d,o);
   } else {
-    h+='<div class="type">'+(d.type==='creature'?'':d.type==='spell'?'スペル':'装備')+'</div>';
+    h+='<div class="type">'+(d.type==='creature'?'':({spell:'スペル',equip:'装備',relic:'置物',trap:'罠'}[d.type]))+'</div>';
     if(d.type==='creature') h+=statHtml(d,o);
     if(o.badge) h+='<div class="badge">'+esc(o.badge)+'</div>';
     if(o.eq) h+='<div class="eq">装+'+o.eq+'</div>';
@@ -2070,6 +2138,8 @@ const GLOSS_MECH = {
   perm:['永続／ターン終了時まで','「永続」の強化は場にいる間ずっと残る。「ターン終了時まで」はそのターンの終わりに消える。'],
   dmg:['ダメージと体力','ダメージは蓄積し、体力0で破壊。戦闘では互いに攻撃力分のダメージを与え合う。'],
   noattack:['攻撃不能','このクリーチャーは攻撃できない（守護にはなれる）。'],
+  relic:['置物','場に置く非クリーチャー（各自3つまで）。攻撃せず、攻撃もされない。常在効果や誘発効果を持つ。カウントダウン付きのものは自分のターン開始時に1減り、0で消える（消えるときの効果を持つものもある）。'],
+  trap:['罠','伏せて置く（各自2つまで）。相手には中身が見えない。「相手が攻撃したとき」「相手が手札からクリーチャーを出したとき」「相手がスペルを唱えたとき」などの条件で一度だけ発動する。'],
   entry:['効果で場に出たクリーチャー','コピー・進化・蘇生・山札から直接など、手札以外から場に出たクリーチャーも登場時効果が発動する。ただし、その登場時効果のうち「クリーチャーを場に出す効果」（コピー・蘇生・進化など）は無限連鎖を防ぐため発動しない。相手のクリーチャーを変身させる効果（カエル化など）では発動しない。'],
   leader:['リーダー能力','毎ターン1回、エナジーを払って使える固有能力。一部のカードで書き換えられる。'],
 };
@@ -2088,13 +2158,15 @@ function glossTerms(d){
   if(/レスト/.test(txt)) add(GLOSS_MECH.rest[0],GLOSS_MECH.rest[1]);
   if(/トークン|「(火花|泡|苗木|光の羽|骸|兵士|カエル)」/.test(txt)) add(GLOSS_MECH.token[0],GLOSS_MECH.token[1]);
   if(/リーダー能力/.test(txt)) add(GLOSS_MECH.leader[0],GLOSS_MECH.leader[1]);
+  if(d.type==='relic') add(GLOSS_MECH.relic[0],GLOSS_MECH.relic[1]);
+  if(d.type==='trap') add(GLOSS_MECH.trap[0],GLOSS_MECH.trap[1]);
   return out;
 }
 function glossHtml(list){ return list.length? '<div class="gloss">'+list.map(([t,x])=>'<div><b>'+esc(t)+'</b>：'+esc(x)+'</div>').join('')+'</div>' : ''; }
 function showGlossary(){
   const kw=Object.keys(AN.KW).map(k=>[AN.KW[k], AN.KW_HELP[k]||'']);
   const mech=['combo','boost','awaken','pray','souls'].map(k=>GLOSS_MECH[k]);
-  const rules=['dmg','rest','stun','freeze','perm','token','entry','leader'].map(k=>GLOSS_MECH[k]);
+  const rules=['dmg','rest','stun','freeze','perm','token','relic','trap','entry','leader'].map(k=>GLOSS_MECH[k]);
   const leaders=AN.ATTR_ORDER.map(a=>[AN.ATTRS[a].n+'「'+AN.LEADER[a].name+'」', AN.LEADER[a].cost+'エナジー：'+AN.LEADER[a].text]);
   const sec=(h,l)=>'<h3 style="margin-top:14px">'+h+'</h3>'+glossHtml(l);
   sheet('<h3>用語集</h3>'+sec('キーワード能力',kw)+sec('属性の看板メカニクス',mech)+sec('基本ルール',rules)+sec('リーダー能力（初期）',leaders)+'<div class="btns"><button class="ghost" id="gclose">閉じる</button></div>');
@@ -2134,7 +2206,7 @@ function renderTitle(){
    +'<button id="btnOnline">オンライン対戦（部屋コード）</button>'
    +(loadOnline()?'<button id="btnOnlineResume">オンライン対戦を再開（部屋 '+esc(loadOnline().code)+'）</button>':'')
    +'<button id="btnCodex">カードリスト（図鑑）</button>'
-   +'</div><div class="sub" style="margin-top:28px;font-size:11px">v3.1 — CPU戦・'+AN.CARDS.length+'種プール</div></div>';
+   +'</div><div class="sub" style="margin-top:28px;font-size:11px">v3.3 — CPU戦・'+AN.CARDS.length+'種プール</div></div>';
   s.querySelector('#btnNew').onclick=()=>show('setup');
   s.querySelector('#btnCodex').onclick=()=>show('codex');
   s.querySelector('#btnOnline').onclick=()=>show('lobby');
@@ -2262,8 +2334,8 @@ function nextReveal(){
   const el=document.createElement('div'); el.className='reveal'+(r.d.legend?' legend':'');
   if(r.d.phase){ el.className='reveal legend'; el.innerHTML='<div class="rv-inner"><div class="rv-kind">真の姿</div><div class="rv-who" style="font-size:18px;color:var(--text)">'+esc(r.d.name)+'が目覚めた</div><div class="rv-tap">タップで閉じる</div></div>'; }
   else {
-  const kind = r.d.legend ? '伝説のアノマリー' : (r.d.weird ? '奇妙なアノマリー' : 'アノマリー');
-  el.innerHTML='<div class="rv-inner"><div class="rv-kind">'+kind+'</div><div class="rv-who">'+esc(r.who)+'が解き放った</div><div class="rv-card"></div><div class="rv-tap">タップで閉じる</div></div>';
+  const kind = r.d.isTrap ? '罠発動' : (r.d.legend ? '伝説のアノマリー' : (r.d.weird ? '奇妙なアノマリー' : 'アノマリー'));
+  el.innerHTML='<div class="rv-inner"><div class="rv-kind">'+kind+'</div><div class="rv-who">'+esc(r.who)+(r.d.isTrap?'の罠':'が解き放った')+'</div><div class="rv-card"></div><div class="rv-tap">タップで閉じる</div></div>';
   el.querySelector('.rv-card').appendChild(cardEl(r.d,{big:true}));
   }
   document.body.appendChild(el);
@@ -2323,6 +2395,7 @@ function renderBattle(){
     return f;
   };
   s.appendChild(div('',pbar(op,true)));
+  s.appendChild(zoneEl(op,false));
   s.appendChild(fieldEl(op,false));
   const last=game.log.length?game.log[game.log.length-1]:{s:''};
   const mid=document.createElement('div'); mid.className='mid';
@@ -2333,6 +2406,7 @@ function renderBattle(){
   s.appendChild(mid);
   s.appendChild(fieldEl(me,true));
   s.appendChild(div('',pbar(me,false)));
+  s.appendChild(zoneEl(me,true));
   // hand
   const hand=document.createElement('div'); hand.className='hand fan';
   const n=me.hand.length, W=Math.min(app.clientWidth||390,560), CW=74;
@@ -2375,7 +2449,7 @@ function renderBattle(){
   const lifeOp=s.querySelector('#life'+op.i); lifeOp.onclick=()=>{ if(atkMode&&targets.includes('player')){ ui.attackFrom=null; doAct({t:'attack',uid:atkCr.c.uid,target:'player'}); } };
   // events → flashes
   const evs=game.events.slice(evSeen); evSeen=game.events.length;
-  evs.forEach(e=>{ if(e.type==='play' && e.d && e.d.anomaly) queueReveal(e.d, game.players[e.p].name); if(e.type==='bossphase') queueReveal({phase:true, name:game.players[e.p].name}, game.players[e.p].name); });
+  evs.forEach(e=>{ if(e.type==='play' && e.d && e.d.anomaly) queueReveal(e.d, game.players[e.p].name); if(e.type==='trap') queueReveal(Object.assign({isTrap:true},e.d), game.players[e.p].name); if(e.type==='bossphase') queueReveal({phase:true, name:game.players[e.p].name}, game.players[e.p].name); });
   evs.forEach(e=>{ if(e.type==='life'&&e.n<0){ const l=s.querySelector('#life'+e.p); if(l){ l.classList.add('hit'); } } });
   // pending for human
   if(game.phase==='mulligan'){ renderMulligan(); return; }
@@ -2412,6 +2486,13 @@ function renderMulligan(){
   });
   upd();
   sh.querySelector('#mgo').onclick=()=>{ const u=[...ui.mullSel]; ui.mullSel=new Set(); doAct({t:'mull',uids:u}); };
+}
+function zoneEl(p, mine){
+  const z=document.createElement('div'); z.className='zone';
+  if(!p.relics.length && !p.traps.length) return z;
+  p.relics.forEach(r=>{ const b=document.createElement('button'); b.className='zchip relic'; b.innerHTML=AN.iconSvg(r.c.d)+'<span>'+esc(r.c.d.name)+(r.cd!=null?'<b>'+r.cd+'</b>':'')+'</span>'; b.onclick=()=>cardSheet(r.c.d,{},[]); z.appendChild(b); });
+  p.traps.forEach(c=>{ const b=document.createElement('button'); b.className='zchip trap'; if(mine){ b.innerHTML=AN.iconSvg(c.d)+'<span>'+esc(c.d.name)+'</span>'; b.onclick=()=>cardSheet(c.d,{},[]); } else { b.innerHTML='<span>？ 罠</span>'; b.onclick=()=>toast('伏せられた罠。中身は分からない'); } z.appendChild(b); });
+  return z;
 }
 function renderPending(q){
   const me=game.players[ui.me];
@@ -2667,7 +2748,7 @@ function advGenChoices(){
   while(out.length<n){ const t=rng.pick(bag); if(t==='battle' && out.filter(x=>x==='battle').length>=2) continue; if(t!=='battle' && out.includes(t)) continue; out.push(t); }
   advRun.choices=rng.shuffle(out);
 }
-const ADV_NODE={ battle:{n:'戦闘',i:'sword',d:'この地の住人と戦う。勝てば賭けたカードとゴールド。'}, elite:{n:'強敵',i:'helm',d:'手強い相手。勝てばカードを1枚選んで得られる。'}, shop:{n:'店',i:'barrel',d:'カードを買う・売る。'}, inn:{n:'宿',i:'lantern',d:'休んでハートを回復する。'}, event:{n:'謎の出来事',i:'eye',d:'何かが起きる。'}, boss:{n:'地域の主',i:'crown',d:'この地域の主。倒せば次の地域へ。'}, final:{n:'歪みの果て',i:'darkcrown',d:'すべての歪みを喰らう者が待つ。'} };
+const ADV_NODE={ battle:{n:'戦闘',i:'sword',d:'この地の住人と戦う。勝てば賭けたカードとゴールド。'}, elite:{n:'強敵',i:'helm',d:'手強い相手。この地の力（属性+1/+1）を受ける。勝てばカードを1枚選べる。'}, shop:{n:'店',i:'barrel',d:'カードを買う・売る。'}, inn:{n:'宿',i:'lantern',d:'休んでハートを回復する。'}, event:{n:'謎の出来事',i:'eye',d:'何かが起きる。'}, boss:{n:'地域の主',i:'crown',d:'この地域の主。この地の力を受ける。倒せば次の地域へ。'}, final:{n:'歪みの果て',i:'darkcrown',d:'すべての歪みを喰らう者が待つ。'} };
 
 // ---------- 画面：開始 ----------
 function renderAdvStart(){
@@ -2683,7 +2764,7 @@ function renderAdvStart(){
 function advHeader(){
   const a=advArea(); const A=a?ADV_AREA[a]:null;
   return '<div class="advhead" style="--ac:'+(a?AN.ATTRS[a].c:'#C58CFF')+'"><div class="an">'+(A?esc(A.name)+' ・ '+(advRun.floor<5?(advRun.floor+1)+'階':'主の間'):'歪みの果て')+'</div><div class="st">♥'+'♥'.repeat(Math.max(0,advRun.hearts-1))+'<span class="lost">'+'♡'.repeat(advRun.maxHearts-advRun.hearts)+'</span>　'+advRun.gold+'G　所持'+advRun.col.length+'枚</div>'
-   +(a?'<div class="buff">この地では'+AN.ATTRS[a].n+'属性のクリーチャーは+1/+1</div>':'')+'</div>';
+   +(a?'<div class="buff">強敵と主との戦いでは、'+AN.ATTRS[a].n+'属性のクリーチャーが+1/+1</div>':'')+'</div>';
 }
 // ---------- 画面：地図（分かれ道） ----------
 function renderAdvMap(){
@@ -2739,6 +2820,7 @@ function renderAdvAnte(){
   const a=P.en.attr;
   s.innerHTML=advHeader()+'<div class="scroll wrap" style="text-align:center">'
    +'<div class="advfoe" style="--ac:'+(a?AN.ATTRS[a].c:'#C58CFF')+'"><span class="ico">'+AN.iconSvg({i:P.kind==='boss'?'crown':(P.kind==='elite'?'helm':(P.en.final?'anom1':'soldier'))})+'</span><div><div class="fn">'+esc(P.en.name)+'</div><div class="sub">'+(P.en.secret?'最終決戦 ・ その力は計り知れない':({battle:'',elite:'強敵 ・ ',boss:'地域の主 ・ ',final:'最終決戦 ・ '}[P.kind])+'ライフ'+P.en.life+(P.en.leader?' ・ 能力「'+esc(AN.LEADER_EX[P.en.leader].name)+'」':'')+(P.en.energy?' ・ 開始エナジー+'+P.en.energy:''))+'</div></div></div>'
+   +((P.kind==='elite'||P.kind==='boss')&&a?'<div class="sub" style="margin-bottom:8px;color:#FFD86B">この戦いでは'+AN.ATTRS[a].n+'属性のクリーチャーが敵味方とも+1/+1</div>':'')
    +'<div class="field-label">賭けるカード</div><div class="ante"><div><div class="sub">あなた</div><div id="a1"></div></div><div class="vs">⇄</div><div><div class="sub">'+esc(P.en.name)+'</div><div id="a2"></div></div></div>'
    +'<div class="sub" style="margin:8px 0 14px">勝てば相手のカードを得て、負ければあなたのカードを失いハートが1つ減ります。</div>'
    +'<div class="menu"><button class="primary" id="fight">戦う</button><button class="ghost" id="deck">デッキを確認</button></div></div>';
@@ -2751,12 +2833,12 @@ function advFight(){
   const P=advRun.pending; if(!P) return;
   advEnsureDeck(); if(!advRun.deck.includes(P.myAnte)){ P.myAnte=advRun.deck[0]; }
   const myDefs=advDeckDefs(); const myMain=advMain(myDefs);
-  const a=advArea();
+  const a=advArea(); const buffOn = a && (P.kind==='elite'||P.kind==='boss');
   series={ adv:true, online:null, boss:null, level:P.en.level, wins:[0,0], gameNo:1, format:1, mains:[myMain,P.en.attr], pools:[[],[]], decks:[[],[]] };
   ui.me=0;
   game=new AN.Game({ seed:advRun.seed+':g'+advRng('g')(), decks:[myDefs, P.en.deck], names:['あなた', P.en.name], mains:[myMain, P.en.attr], choosers:[null, AN.AI.chooser(P.en.level)],
-    lifes:[0,P.en.life], leaders:[null,P.en.leader], energyBonus:[0,P.en.energy], fieldBuff: a?{attr:a,n:1}:null, bossRules: P.en.final?[null,{devour:true, phase:15}]:null });
-  if(a) game.say('この地では'+AN.ATTRS[a].n+'属性のクリーチャーは+1/+1','turn');
+    lifes:[0,P.en.life], leaders:[null,P.en.leader], energyBonus:[0,P.en.energy], fieldBuff: buffOn?{attr:a,n:1}:null, bossRules: P.en.final?[null,{devour:true, phase:15}]:null });
+  if(buffOn) game.say('この地の力：'+AN.ATTRS[a].n+'属性のクリーチャーは+1/+1','turn');
   ui.attackFrom=null; evSeen=0; ui.mullSel=new Set();
   game.mulligan(game.players[1], AN.AI.mullPick(game,1));
   advRun.stage='battle'; advSave();

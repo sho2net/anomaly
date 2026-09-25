@@ -2254,7 +2254,7 @@ function renderTitle(){
    +'<button id="btnOnline">オンライン対戦（部屋コード）</button>'
    +(loadOnline()?'<button id="btnOnlineResume">オンライン対戦を再開（部屋 '+esc(loadOnline().code)+'）</button>':'')
    +'<button id="btnCodex">カードリスト（図鑑）</button>'
-   +'</div><div class="sub" style="margin-top:28px;font-size:11px">v3.7 — CPU戦・'+AN.CARDS.length+'種プール</div></div>';
+   +'</div><div class="sub" style="margin-top:28px;font-size:11px">v3.7.1 — CPU戦・'+AN.CARDS.length+'種プール</div></div>';
   s.querySelector('#btnNew').onclick=()=>show('setup');
   s.querySelector('#btnCodex').onclick=()=>show('codex');
   s.querySelector('#btnOnline').onclick=()=>show('lobby');
@@ -2488,7 +2488,7 @@ function renderBattle(){
   act.innerHTML='<div class="hint">'+hint+'</div>'+(atkMode?'<button class="ghost" id="cancelAtk">攻撃をやめる</button>':'')
     +(L?'<button id="ability" class="'+(game.canUseAbility(me)?'':'ghost')+'" '+(game.canUseAbility(me)?'':'disabled')+' title="'+esc(L.text)+'">'+esc(L.name)+'（'+L.cost+'）</button>':'')
     +'<button class="primary" id="endTurn" '+(myTurn?'':'disabled')+'>ターン終了</button>'+(series.online?'<button class="ghost" id="concede" title="投了">投了</button>':'');
-  const cc=act.querySelector('#concede'); if(cc) cc.onclick=()=>{ if(confirm('投了しますか？')) window.__act({t:'concede'}); };
+  const cc=act.querySelector('#concede'); if(cc) cc.onclick=()=>askConfirm('投了しますか？','投了する',()=>window.__act({t:'concede'}));
   const ab=act.querySelector('#ability'); if(ab){ ab.onclick=()=>{ ui.attackFrom=null; doAct({t:'ability'}); }; ab.oncontextmenu=e=>{ e.preventDefault(); toast(L.text); }; }
   const oppL=game.leaderDef(op);
   s.appendChild(act);
@@ -2541,6 +2541,12 @@ function zoneEl(p, mine){
   p.relics.forEach(r=>{ const b=document.createElement('button'); b.className='zchip relic'; b.innerHTML=AN.iconSvg(r.c.d)+'<span>'+esc(r.c.d.name)+(r.cd!=null?'<b>'+r.cd+'</b>':'')+'</span>'; b.onclick=()=>cardSheet(r.c.d,{},[]); z.appendChild(b); });
   p.traps.forEach(c=>{ const b=document.createElement('button'); b.className='zchip trap'; if(mine){ b.innerHTML=AN.iconSvg(c.d)+'<span>'+esc(c.d.name)+'</span>'; b.onclick=()=>cardSheet(c.d,{},[]); } else { b.innerHTML='<span>？ 罠</span>'; b.onclick=()=>toast('伏せられた罠。中身は分からない'); } z.appendChild(b); });
   return z;
+}
+// ゲーム内の確認ダイアログ（ブラウザ標準の confirm はアーティファクトや一部のアプリ内ブラウザで表示されないため使わない）
+function askConfirm(msg, yesLabel, onYes){
+  const sh=sheet('<h3>確認</h3><div class="sub" style="margin-bottom:12px;line-height:1.7">'+esc(msg)+'</div><div class="btns"><button class="ghost" id="cfNo">やめる</button><button class="primary" id="cfYes">'+esc(yesLabel||'はい')+'</button></div>', true);
+  sh.querySelector('#cfNo').onclick=closeSheet;
+  sh.querySelector('#cfYes').onclick=()=>{ closeSheet(); onYes(); };
 }
 function renderPending(q){
   const me=game.players[ui.me];
@@ -2807,7 +2813,7 @@ function renderAdvStart(){
    +'<div class="advcolors">'+AN.ATTR_ORDER.map(a=>'<button data-c="'+a+'" style="--ac:'+AN.ATTRS[a].c+'"><span class="ico">'+AN.iconSvg({i:ADV_AREA[a].icon})+'</span>'+AN.ATTRS[a].n+'<small>'+AN.ATTRS[a].k+'</small></button>').join('')+'</div></div>';
   s.querySelector('#back').onclick=()=>show('title');
   const c=s.querySelector('#cont'); if(c) c.onclick=()=>{ advRun=saved; const m={ante:'advAnte',event:'advEvent',shop:'advShop',inn:'advInn',reward:'advReward'}; show((advRun.stage==='battle')?'advAnte':(m[advRun.stage]||'advMap')); };
-  s.querySelectorAll('.advcolors button').forEach(b=>b.onclick=()=>{ if(saved && !confirm('今の冒険を捨てて新しく始めますか？')) return; advNewRun(b.dataset.c); show('advMap'); });
+  s.querySelectorAll('.advcolors button').forEach(b=>b.onclick=()=>{ const go=()=>{ advNewRun(b.dataset.c); show('advMap'); }; if(saved) askConfirm('今の冒険を捨てて、'+AN.ATTRS[b.dataset.c].n+'で新しく始めますか？（今の冒険は失われます）','新しく始める',go); else go(); });
 }
 function advHeader(){
   const a=advArea(); const A=a?ADV_AREA[a]:null;
@@ -3038,7 +3044,8 @@ function renderAdvDeck(){
       {label:'− 外す（'+n+'）',disabled:n===0,fn:()=>{ const i=g.idx.find(i=>deck.includes(i)); deck.splice(deck.indexOf(i),1); advSave(); renderAdvDeck(); }},
       {label:'＋ 入れる',cls:'primary',disabled:n>=g.idx.length||deck.length>=30,fn:()=>{ const i=g.idx.find(i=>!deck.includes(i)); deck.push(i); advSave(); renderAdvDeck(); }} ]); };
     grid.appendChild(w); });
-  const back=()=>{ if(!ok){ if(!confirm('デッキが条件を満たしていません。おまかせで組み直して戻りますか？')) return; advAutoDeck(); } advSave(); show(advRun.stage==='ante'?'advAnte':(advRun.stage==='inn'?'advInn':'advMap')); };
+  const leave=()=>{ advSave(); show(advRun.stage==='ante'?'advAnte':(advRun.stage==='inn'?'advInn':'advMap')); };
+  const back=()=>{ if(!ok){ askConfirm('デッキが条件（30枚・属性2つまで）を満たしていません。おまかせで組み直して戻りますか？','組み直して戻る',()=>{ advAutoDeck(); leave(); }); return; } leave(); };
   s.querySelector('#back').onclick=back; s.querySelector('#done').onclick=back;
   s.querySelector('#auto').onclick=()=>{ advAutoDeck(); advSave(); renderAdvDeck(); };
   s.querySelector('#help').onclick=showGlossary;

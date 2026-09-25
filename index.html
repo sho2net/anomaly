@@ -610,14 +610,14 @@ TREASURES.forEach(d=>{ if(d.st){ d.power=d.st[0]; d.hp=d.st[1]; } });
 const CARD_BY_ID = {}; CARDS.forEach(c=>CARD_BY_ID[c.id]=c); TREASURES.forEach(c=>CARD_BY_ID[c.id]=c);
 
 // ---- effect text ----
-const TRIG = { etb:'登場時：', atk:'攻撃時：', death:'破壊時：', cast:'', turnstart:'自分のターン開始時：', oppturnstart:'相手のターン開始時：', static:'', endturn:'自分のターン終了時：', spell:'自分がスペルを唱えるたび：', ability:'リーダー能力を使うたび：', heal:'自分のライフが回復するたび：', allyDeath:'自分の他のクリーチャーが破壊されるたび：', summon:'自分がこのカード以外のクリーチャーを出すたび（トークンを含む）：', play:'自分がこのカード以外のカードをプレイするたび：', draw:'自分がカードを引くたび：', damaged:'このクリーチャーがダメージを受けて生き残るたび：', enemyDeath:'相手のクリーチャーが破壊されるたび：', expire:'カウントダウンが0になって消えるとき：', enemyAttack:'相手のクリーチャーが攻撃したとき：', enemySummon:'相手が手札からクリーチャーを出したとき：', enemySpell:'相手がスペルを唱えたとき：', handturn:'手札にある間、自分のターン開始時：' };
+const TRIG = { etb:'登場時：', atk:'攻撃時：', death:'破壊時：', cast:'', turnstart:'自分のターン開始時：', oppturnstart:'相手のターン開始時：', static:'', endturn:'自分のターン終了時：', spell:'自分がスペルを唱えるたび：', ability:'リーダー能力を使うたび：', heal:'自分のライフが回復するたび（回復量にかかわらず1回の回復ごとに）：', allyDeath:'自分の他のクリーチャーが破壊されるたび：', summon:'自分がこのカード以外のクリーチャーを出すたび（トークンを含む）：', play:'自分がこのカード以外のカードをプレイするたび：', draw:'自分がカードを引くたび：', damaged:'このクリーチャーがダメージを受けて生き残るたび：', enemyDeath:'相手のクリーチャーが破壊されるたび：', expire:'カウントダウンが0になって消えるとき：', enemyAttack:'相手のクリーチャーが攻撃したとき：', enemySummon:'相手が手札からクリーチャーを出したとき：', enemySpell:'相手がスペルを唱えたとき：', handturn:'手札にある間、自分のターン開始時：' };
 function condText(o){
   if(o.minPower!=null) return '攻撃力'+o.minPower+'以上の';
   if(o.damaged && o.maxCost!=null) return 'ダメージを受けているコスト'+o.maxCost+'以下の';
   if(o.damaged) return 'ダメージを受けている';
   if(o.tapped && o.maxCost!=null) return 'レスト状態でコスト'+o.maxCost+'以下の';
   if(o.tapped) return 'レスト状態の';
-  if(o.maxPower!=null) return 'パワー'+o.maxPower+'以下の';
+  if(o.maxPower!=null) return '攻撃力'+o.maxPower+'以下の';
   if(o.maxCost!=null) return 'コスト'+o.maxCost+'以下の';
   return '';
 }
@@ -772,7 +772,7 @@ function spText(sp){ if(sp.onDraw) return '引くとライフ-'+sp.onDraw.n+'、
 function cardText(d){
   const lines=[];
   if(d.onDraw) lines.push('山札から引いたとき：自分のライフを'+d.onDraw.n+'失う。このカードは消え、代わりにカードを1枚引く。');
-  if(d.type==='relic') lines.push('置物：場に置く（各自3つまで）。攻撃せず、攻撃もされない。'+(d.countdown?'カウントダウン'+d.countdown+'（自分のターン開始時に1減り、0で消える）。':''));
+  if(d.type==='relic') lines.push('置物：場に置く（各自3つまで）。置物自身は攻撃せず、攻撃の対象にもならない（あなたやクリーチャーは通常どおり攻撃される）。'+(d.countdown?'カウントダウン'+d.countdown+'（自分のターン開始時に1減り、0で消える）。':''));
   if(d.type==='trap') lines.push('罠：伏せて置く（各自2つまで）。相手には中身が見えない。条件を満たすと一度だけ発動して墓地へ。');
   if(d.sb==='cost') lines.push('詠唱：手札にある間、自分がスペルを唱えるたびコスト-1。');
   if(d.sb==='grow'||d.sb==='flag') lines.push('詠唱：手札にある間、自分がスペルを唱えるたび詠唱+1。');
@@ -917,7 +917,7 @@ const LEADER = {
   tide: { name:'潮読み', cost:2, text:'自分のライフを1失い、カードを1枚引く。', ef:[ef('leader','lifecost',{n:1}),ef('leader','draw',{n:1})] },
   grow: { name:'成長', cost:2, text:'自分のクリーチャー1体に+1/+1（永続）。', ef:ef('leader','pumpTarget',{n:1}) },
   ray:  { name:'聖光', cost:2, text:'自分のライフを2回復する。祈り5以上なら、さらに自分はカードを1枚引く。', ef:[ef('leader','heal',{n:2}),ef('leader','draw',{n:1,req:{pray:5}})] },
-  void: { name:'屍術', cost:2, text:'パワー1の「骸」トークンを1体出す。', ef:ef('leader','token',{}) },
+  void: { name:'屍術', cost:2, text:'自分の場に1/1の「骸」トークンを1体出す。', ef:ef('leader','token',{}) },
 };
 const TOKENS = {
   dream: { id:'tok_dream', name:'夢の竜', attr:['grow'], type:'creature', cost:5, power:5, hp:5, rarity:'C', kw:[], effects:[], token:true, i:'dragon' },
@@ -1566,8 +1566,8 @@ class Game {
       case 'ramp': { const b=p.energyMax; p.energyMax=Math.min(ENERGY_MAX,p.energyMax+n); this.say(p.name+'の最大エナジー '+b+'→'+p.energyMax,'charge'); break; }
       case 'energyNow': p.energy=Math.min(ENERGY_MAX,p.energy+n); this.say(p.name+'のエナジー+'+n+'（このターン）','charge'); break;
       case 'discard': { const q=x.self?p:o; for(let i=0;i<n;i++){ if(q.hand.length===0) break; const k=this.rng.int(q.hand.length); const c=q.hand.splice(k,1)[0]; q.grave.push(c); q.souls++; this.say(q.name+'は「'+c.d.name+'」を捨てた','discard'); } break; }
-      case 'buffAll': p.field.forEach(c=>{ if(!x.attr||c.c.d.attr.includes(x.attr)) c.tmp+=n; }); this.say(p.name+'のクリーチャーはパワー+'+n); break;
-      case 'pumpSelf': { const cr=this.findCr(t.src.uid); if(cr){ cr.pump+=n; this.say('「'+cr.c.d.name+'」のパワー+'+n); } break; }
+      case 'buffAll': p.field.forEach(c=>{ if(!x.attr||c.c.d.attr.includes(x.attr)) c.tmp+=n; }); this.say(p.name+'のクリーチャーに、ターン終了時まで+'+n+'/+'+n); break;
+      case 'pumpSelf': { const cr=this.findCr(t.src.uid); if(cr){ cr.pump+=n; this.say('「'+cr.c.d.name+'」に+'+n+'/+'+n); } break; }
       case 'destroyAll': o.field.slice().forEach(c=>{ if(x.tapped&&!c.tapped) return; if(x.damaged&&!(c.dmg>0)) return; if(x.maxPower!=null&&this.power(c)>x.maxPower) return; this.destroy(c); }); break;
       case 'bounceAll': o.field.slice().forEach(c=>this.bounce(c)); break;
       case 'tapAll': o.field.forEach(c=>{ c.tapped=true; c.stun=true; }); this.say(o.name+'のクリーチャーはすべてレストして気絶'); break;
@@ -1577,8 +1577,8 @@ class Game {
       case 'bounce': { const c=this.findCr(t.choice); if(c) this.bounce(c); break; }
       case 'freeze': { const c=this.findCr(t.choice); if(c){ c.tapped=true; c.frozen=true; c.stun=true; this.say('「'+c.c.d.name+'」は凍結した'); } break; }
       case 'tap': { const c=this.findCr(t.choice); if(c){ c.tapped=true; c.stun=true; this.say('「'+c.c.d.name+'」はレストして気絶した'); } break; }
-      case 'buff': { const c=this.findCr(t.choice); if(c){ c.tmp+=n; this.say('「'+c.c.d.name+'」はパワー+'+n); } break; }
-      case 'pumpTarget': { const c=this.findCr(t.choice); if(c){ c.pump+=n; this.say('「'+c.c.d.name+'」のパワー+'+n+'（永続）'); } break; }
+      case 'buff': { const c=this.findCr(t.choice); if(c){ c.tmp+=n; this.say('「'+c.c.d.name+'」に、ターン終了時まで+'+n+'/+'+n); } break; }
+      case 'pumpTarget': { const c=this.findCr(t.choice); if(c){ c.pump+=n; this.say('「'+c.c.d.name+'」に+'+n+'/+'+n+'（永続）'); } break; }
       case 'fight': { const c=this.findCr(t.choice); const mine=p.field.slice().sort((a,b)=>this.power(b)-this.power(a))[0]; if(c&&mine){ this.say('「'+mine.c.d.name+'」が「'+c.c.d.name+'」と戦闘'); this.battle(mine,c,n||0); } break; }
       case 'freezeAll': o.field.forEach(c=>{ c.tapped=true; c.frozen=true; c.stun=true; }); this.say(o.name+'のクリーチャーはすべて凍結'); break;
       case 'selfDestroy': { const cr=this.findCr(t.src.uid); if(cr) this.destroy(cr); break; }
@@ -1587,13 +1587,13 @@ class Game {
       case 'swapLife': { const a=p.life; p.life=o.life; o.life=a; this.say('ライフが入れ替わった！ '+p.name+' '+p.life+' / '+o.name+' '+o.life,'life'); this.checkWin(); break; }
       case 'cloneSelf': { const cr=this.findCr(t.src.uid); if(cr && p.field.length<FIELD_MAX){ const nc=this.mkCr(this.inst(cr.c.d)); nc.pump=cr.pump; p.field.push(nc); this.say('「'+cr.c.d.name+'」のコピーが現れた','play'); } break; }
       case 'polymorph': { const c=this.findCr(t.choice); if(c){ const i=o.field.indexOf(c); const nc=this.mkCr(this.inst(AN.FROG)); nc.sick=c.sick; nc.tapped=c.tapped; o.field[i]=nc; this.say('「'+c.c.d.name+'」はカエルになった','play'); } break; }
-      case 'equalize': { [...p.field,...o.field].forEach(c=>{ c.fixed=n; c.pump=0; c.dmg=0; }); this.say('すべてのクリーチャーのパワーが'+n+'になった','play'); break; }
+      case 'equalize': { [...p.field,...o.field].forEach(c=>{ c.fixed=n; c.pump=0; c.dmg=0; }); this.say('すべてのクリーチャーが'+n+'/'+n+'になった','play'); break; }
       case 'mill': { let k=0; for(let i=0;i<n;i++){ if(!o.deck.length) break; o.grave.push(o.deck.pop()); k++; } this.say(o.name+'の山札から'+k+'枚が墓地へ','discard'); break; }
       case 'handRefresh': { [p,o].forEach(q=>{ const k=q.hand.length; q.hand.forEach(c=>q.grave.push(c)); q.hand=[]; this.draw(q,k,true); this.say(q.name+'は手札'+k+'枚を引き直した','draw'); }); break; }
       case 'massRevive': { [p,o].forEach(q=>{ const cs=q.grave.filter(c=>c.d.type==='creature'&&!c.d.token&&c!==t.src).sort((a,b)=>b.d.cost-a.d.cost); let k=0; for(const c of cs){ if(q.field.length>=FIELD_MAX) break; q.grave.splice(q.grave.indexOf(c),1); q.field.push(this.mkCr(c)); k++; } this.say(q.name+'の墓地から'+k+'体が蘇った','play'); }); break; }
       case 'dmgAllBoth': { [...p.field,...o.field].forEach(c=>this.dealDamage(c,n,false)); this.checkDeaths(); break; }
       case 'toHand': { const c=t.src; if(p.grave.includes(c)){ p.grave.splice(p.grave.indexOf(c),1); p.hand.push(c); this.say('「'+c.d.name+'」は手札に戻った','bounce'); } break; }
-      case 'sacrifice': { const cr=this.findCr(t.src.uid); if(cr){ const others=p.field.filter(c=>c!==cr); others.forEach(c=>this.kill(c)); cr.pump+=others.length*3; this.say('「'+cr.c.d.name+'」は'+others.length+'体を生贄にしてパワー+'+(others.length*3),'play'); } break; }
+      case 'sacrifice': { const cr=this.findCr(t.src.uid); if(cr){ const others=p.field.filter(c=>c!==cr); others.forEach(c=>this.kill(c)); cr.pump+=others.length*3; this.say('「'+cr.c.d.name+'」は'+others.length+'体を生贄にして+'+(others.length*3)+'/+'+(others.length*3),'play'); } break; }
       case 'coin': { if(this.rng()<0.5){ this.say('コインは表！','play'); o.field.slice().forEach(c=>this.dealDamage(c,5,false)); this.checkDeaths(); } else { this.say('コインは裏…','play'); this.loseLife(p,5,'コイン'); } break; }
       case 'copyEnemy': { const c=this.findCr(t.choice); if(c && p.field.length<FIELD_MAX){ p.field.push(this.mkCr(this.inst(c.c.d))); this.say(p.name+'は「'+c.c.d.name+'」のコピーを出した','play'); } break; }
       case 'resetAll': { [p,o].forEach(q=>q.field.slice().forEach(c=>this.bounce(c))); break; }
@@ -2190,7 +2190,7 @@ const GLOSS_MECH = {
   perm:['永続／ターン終了時まで','「永続」の強化は場にいる間ずっと残る。「ターン終了時まで」はそのターンの終わりに消える。'],
   dmg:['ダメージと体力','ダメージは蓄積し、体力0で破壊。戦闘では互いに攻撃力分のダメージを与え合う。'],
   noattack:['攻撃不能','このクリーチャーは攻撃できない（守護にはなれる）。'],
-  relic:['置物','場に置く非クリーチャー（各自3つまで）。攻撃せず、攻撃もされない。常在効果や誘発効果を持つ。カウントダウン付きのものは自分のターン開始時に1減り、0で消える（消えるときの効果を持つものもある）。'],
+  relic:['置物','場に置く非クリーチャー（各自3つまで）。置物自身は攻撃せず、攻撃の対象にもならない（持ち主やクリーチャーを守る効果ではない）。常在効果や誘発効果を持つ。カウントダウン付きのものは自分のターン開始時に1減り、0で消える（消えるときの効果を持つものもある）。'],
   trap:['罠','伏せて置く（各自2つまで）。相手には中身が見えない。「相手が攻撃したとき」「相手が手札からクリーチャーを出したとき」「相手がスペルを唱えたとき」などの条件で一度だけ発動する。'],
   entry:['効果で場に出たクリーチャー','コピー・進化・蘇生・山札から直接など、手札以外から場に出たクリーチャーも登場時効果が発動する。ただし、その登場時効果のうち「クリーチャーを場に出す効果」（コピー・蘇生・進化など）は無限連鎖を防ぐため発動しない。相手のクリーチャーを変身させる効果（カエル化など）では発動しない。'],
   leader:['リーダー能力','毎ターン1回、エナジーを払って使える固有能力。一部のカードで書き換えられる。'],
@@ -2258,7 +2258,7 @@ function renderTitle(){
    +'<button id="btnOnline">オンライン対戦（部屋コード）</button>'
    +(loadOnline()?'<button id="btnOnlineResume">オンライン対戦を再開（部屋 '+esc(loadOnline().code)+'）</button>':'')
    +'<button id="btnCodex">カードリスト（図鑑）</button>'
-   +'</div><div class="sub" style="margin-top:28px;font-size:11px">v3.8 — CPU戦・'+AN.CARDS.length+'種プール</div></div>';
+   +'</div><div class="sub" style="margin-top:28px;font-size:11px">v3.8.2 — CPU戦・'+AN.CARDS.length+'種プール</div></div>';
   s.querySelector('#btnNew').onclick=()=>show('setup');
   s.querySelector('#btnCodex').onclick=()=>show('codex');
   s.querySelector('#btnOnline').onclick=()=>show('lobby');
@@ -2559,7 +2559,7 @@ function renderPending(q){
   const me=game.players[ui.me];
   if(q.type==='block'){
     const atk=game.findCr(q.attacker);
-    const sh=sheet('<h3>「'+esc(atk.c.d.name)+'」（パワー'+game.power(atk)+'）が'+(q.target==='player'?'あなた':'「'+esc(game.findCr(q.target).c.d.name)+'」')+'に攻撃。ブロックしますか？</h3><div class="picks" id="picks"></div><div class="btns"><button class="primary" id="nob">ブロックしない</button></div>', false, true);
+    const sh=sheet('<h3>「'+esc(atk.c.d.name)+'」（攻撃力'+game.power(atk)+'）が'+(q.target==='player'?'あなた':'「'+esc(game.findCr(q.target).c.d.name)+'」')+'に攻撃。ブロックしますか？</h3><div class="picks" id="picks"></div><div class="btns"><button class="primary" id="nob">ブロックしない</button></div>', false, true);
     const pk=sh.querySelector('#picks');
     q.cands.forEach(u=>{ const cr=game.findCr(u); const el=cardEl(cr.c.d,{power:game.power(cr),hp:game.health(cr),hpMax:game.maxHealth(cr)}); el.onclick=()=>{ doAct({t:'choice',v:u}); }; pk.appendChild(el); });
     sh.querySelector('#nob').onclick=()=>{ doAct({t:'choice',v:null}); };

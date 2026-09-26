@@ -262,6 +262,8 @@ html,body{height:100%;height:100dvh}
 @media (max-width:400px){ .deckbar .curve{display:none} .topbar .t{font-size:13px;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis} .mainpick button{font-size:12px} }
 .advreward{background:var(--panel);border-radius:12px;padding:10px 12px;margin:4px 0 14px;font-size:13px;line-height:1.6}
 .advreward b{color:#FFD86B}
+.advdiff{margin-top:6px;line-height:1.7;font-size:12px}
+#segD button{flex:1}
 
 /* ---------- 戦闘エフェクト（fx.js・v3.11） ---------- */
 .fxlayer{position:fixed;inset:0;pointer-events:none;z-index:40;overflow:hidden}
@@ -1226,6 +1228,7 @@ class Game {
     if(opts.energyBonus) this.players.forEach((p,i)=>{ p.energyMax=opts.energyBonus[i]||0; });
     if(opts.bossRules) this.players.forEach((p,i)=>{ p.bossRules=opts.bossRules[i]||null; });
     this.fieldBuff=opts.fieldBuff||null;
+    this.sideBuff=opts.sideBuff||null; // v3.13 冒険ハード：片方のプレイヤーのクリーチャーだけ強化 [null,{atk,hp}]
     this.phase = 'main'; this.queue=[]; this.pending=null; this.winner=null; this.log=[]; this.events=[];
     this.attackCtx=null;
     for(const p of this.players) this.draw(p, HAND_START + (p.i===this.first?0:1), true);
@@ -1264,6 +1267,7 @@ class Game {
     if(cr.c.d.dyn==='hand' && owner) base = owner.hand.length;
     let p = (cr.fixed!=null ? cr.fixed : base + cr.pump) * (cr.mult||1) + cr.tmp;
     if(this.fieldBuff && cr.c.d.attr.includes(this.fieldBuff.attr)) p+=this.fieldBuff.n;
+    if(this.sideBuff && owner && this.sideBuff[owner.i]) p+= (key===(cr.swapped?'hp':'power')) ? (this.sideBuff[owner.i].atk||0) : (this.sideBuff[owner.i].hp||0);
     cr.equips.forEach(e=>p+=e.d.equip.power);
     if(owner) owner.field.forEach(o=>{ if(o!==cr) this.effs(o).forEach(x=>{ if(x.t==='static'&&x.e==='aura'&&(!x.attr||cr.c.d.attr.includes(x.attr))&&(!x.kwf||this.hasKw(cr,x.kwf))) p+=x.n; }); });
     if(owner) owner.relics.forEach(r=>r.c.d.effects.forEach(x=>{ if(x.t==='static'&&x.e==='aura'&&(!x.attr||cr.c.d.attr.includes(x.attr))&&(!x.kwf||this.hasKw(cr,x.kwf))) p+=x.n; }));
@@ -2087,6 +2091,25 @@ function step(g, level){
       const trades=crs.filter(c=>noArmor(c) && g.health(c)<=pw && !c.stun && lp(g,c)>=myH).sort((a,b)=>AN.cardValue(b.c.d)-AN.cardValue(a.c.d));
       const theirPow=o.field.reduce((a,c)=>a+g.power(c),0), myPow=p.field.reduce((a,c)=>a+g.power(c),0);
       let target=null;
+      // v3.13: ダメージレースの判定。相手の盤面の方が先に自分を倒せるなら、顔を殴らずに盤面を取る
+      const clock=(life,pow)=>pow>0?Math.ceil(life/pow):99;
+      const myBoard=p.field.reduce((s2,c)=>s2+(g.hasKw(c,'noattack')?0:g.power(c)),0);
+      const theirBoard=o.field.reduce((s2,c)=>s2+(g.hasKw(c,'noattack')||c.frozen?0:g.power(c)),0);
+      const myClock=clock(o.life,myBoard), theirClock=clock(p.life,theirBoard);
+      const raceBad = L.smart && !lethal && o.life>facePw && theirBoard>0 && (theirClock<myClock || (theirClock===myClock && myClock>=3));
+      if(raceBad && crs.length){
+        const armored=c=>g.hasKw(cr,'armor')&&!cr.armorUsed;
+        const atkDies=c=>!c.stun && lp(g,c)>=myH && !armored(c);
+        const teamPow=ready.filter(c=>g.canAttackWith(p,c)).reduce((s2,c)=>s2+(g.hasKw(c,'deathtouch')&&g.power(c)>0?99:g.power(c)),0);
+        const opts=crs.filter(noArmor).map(c=>{
+          const worth=creatureThreat(g,c)+g.power(c)*1.2, loss=atkDies(c)? creatureThreat(g,cr)*0.7 : 0;
+          let sc=-99;
+          if(g.health(c)<=pw) sc=worth-loss;                                  // この1体で倒せる
+          else if(teamPow>=g.health(c)) sc=worth*0.8-loss-0.5;                  // 残りの攻撃と合わせれば倒せる
+          else if(!atkDies(c) && g.power(c)>=3) sc=g.power(c)*0.4;             // 生き残れるなら削っておく（ダメージは残る）
+          return {c,sc}; }).sort((x,y)=>y.sc-x.sc);
+        if(opts.length && opts[0].sc>0.5 && g.attack(p,cr,opts[0].c.c.uid)) return 'attack';
+      }
       if(canFace){
         if(!L.smart || lethal || o.life<=facePw) target='player';
         else if(kills.length && o.life>facePw*2 && creatureThreat(g,kills[0])>=Math.max(2,pw-3)) target=kills[0].c.uid;
@@ -2815,7 +2838,7 @@ function renderTitle(){
    +(loadOnline()?'<button id="btnOnlineResume">オンライン対戦を再開（部屋 '+esc(loadOnline().code)+'）</button>':'')
    +'<button id="btnCodex">カードリスト（図鑑）</button>'
    +'<button class="ghost" id="btnSnd">'+sndIcon()+' 効果音：'+(AN.SFX.isMuted()?'オフ':'オン')+'</button>'
-   +'</div><div class="sub" style="margin-top:28px;font-size:11px">v3.12.2 — CPU戦・'+AN.CARDS.length+'種プール</div></div>';
+   +'</div><div class="sub" style="margin-top:28px;font-size:11px">v3.13 — CPU戦・'+AN.CARDS.length+'種プール</div></div>';
   s.querySelector('#btnNew').onclick=()=>show('setup');
   s.querySelector('#btnCodex').onclick=()=>show('codex');
   s.querySelector('#btnSnd').onclick=()=>{ AN.SFX.setMuted(!AN.SFX.isMuted()); renderTitle(); };
@@ -3348,9 +3371,24 @@ function advEnsureDeck(){
   if(advRun.deck.length!==30 || advAttrs(advDeckDefs()).length>2) advAutoDeck();
 }
 function advPool(attr, rars){ return AN.CARDS.filter(d=>(attr? d.attr.includes(attr) : d.attr.length===0) && rars.includes(d.rarity)); }
-function advNewRun(color){
+// v3.13 ハード：記録（ノーマルの制覇回数・ハードで制覇した最高の周回）
+const ADV_REC='anomaly_adv_record_v1';
+function advRecord(){ try{ return Object.assign({normal:0,hard:0}, JSON.parse(localStorage.getItem(ADV_REC))||{}); }catch(e){ return {normal:0,hard:0}; } }
+function advSaveRecord(r){ try{ localStorage.setItem(ADV_REC, JSON.stringify(r)); }catch(e){} }
+function advLoop(){ return (advRun&&advRun.hard)||0; } // 0＝ノーマル、1以上＝ハードの周回
+// ハードの敵：通常戦闘は敵のデッキが1段強い、強敵・主・最終ボスは敵のクリーチャーだけ体力+1、敵は常に強CPUでライフ+2〜3
+function advHardMods(kind, strong){
+  const L=advLoop(); if(!L) return null;
+  const big = kind!=='battle' || strong;
+  return { life: advRun.areaIdx===0?2:3, level:3, tierUp: kind==='battle' && !strong, buff: big?{atk:0,hp:1}:null };
+}
+// 最終ボス：封印の効き目はハードでは3分の2。周回ごとにライフ+3、3周目からエナジー+1、5周目から伝説が増え、6周目から攻撃力も+1
+function advSealEff(){ const sl=advSeals(); return advLoop()? Math.floor(sl*2/3) : sl; }
+function advFinalScale(){ const L=advLoop(); if(!L) return {life:0,energy:0,xl:0,buff:null};
+  return { life:3+3*Math.min(7,L-1), energy:(L>=7?2:(L>=3?1:0)), xl:(L>=8?2:(L>=5?1:0)), buff:{atk:L>=6?1:0,hp:1} }; }
+function advNewRun(color, loop){
   const seed='adv'+Math.floor(Math.random()*1e9).toString(36);
-  advRun={ v:1, seed, counter:0, gold:60, hearts:3, maxHearts:3, col:[], deck:[], start:color, areas:[], areaIdx:0, floor:0, choices:null, wins:0, losses:0, stage:'map' };
+  advRun={ v:1, hard:loop||0, seed, counter:0, gold:60, hearts:3, maxHearts:3, col:[], deck:[], start:color, areas:[], areaIdx:0, floor:0, choices:null, wins:0, losses:0, stage:'map' };
   const rng=advRng('start');
   const others=rng.shuffle(AN.ATTR_ORDER.filter(a=>a!==color));
   advRun.areas=[others[0],others[1],others[2]];
@@ -3378,20 +3416,27 @@ function advGenChoices(){
 const ADV_NODE={ battle:{n:'戦闘',i:'sword',d:'この地の住人と戦う。勝てば賭けたカードとゴールド。'}, elite:{n:'強敵',i:'helm',d:'手強い相手。この地の力（属性+1/+1）を受ける。勝てばカードを1枚選べる。'}, shop:{n:'店',i:'barrel',d:'カードを買う・売る。'}, inn:{n:'宿',i:'lantern',d:'休んでハートを回復する。'}, event:{n:'謎の出来事',i:'eye',d:'何かが起きる。'}, boss:{n:'地域の主',i:'crown',d:'この地域の主。強化されたリーダー能力を持つ。倒せば次の地域へ。'}, final:{n:'歪みの果てへ',i:'darkcrown',d:'すべての歪みを喰らう者が待つ。最終決戦。'}, continue:{n:'さらに旅を続ける',i:'runner',d:'まだ訪れていない地域へ（あと数回まで）。デッキを鍛えられるが、敵は強くなり、ハートを失う危険もある。最終ボスの強さは変わらない。'} };
 
 // ---------- 画面：開始 ----------
+let advDiffSel=0; // 開始画面で選んだ難易度（0＝ノーマル、1＝ハード）
 function renderAdvStart(){
-  const s=screenEl('advStart'); const saved=advLoad();
+  const s=screenEl('advStart'); const saved=advLoad(); const rec=advRecord(); const nextLoop=rec.hard+1;
   s.innerHTML='<div class="topbar"><button class="ghost" id="back">←</button><div class="t">冒険モード</div></div><div class="scroll wrap">'
    +'<div class="sub" style="line-height:1.8">1人用の冒険です。最初の色のカードを持って旅立ち、3つの地域を巡って「歪みの果て」を目指します。戦闘に勝つと、あなたのデッキの色のカードから1枚を選んで手に入れられます。負けるとハートが1つ減り、0になると冒険は終わりです。道中の出来事には、うまい話も危険もあります。</div>'
-   +(saved?'<div class="menu"><button class="primary" id="cont">続きから（'+esc(ADV_AREA[saved.areas[Math.min(saved.areaIdx,saved.areas.length-1)]].name)+'・所持金'+saved.gold+'G・ハート'+saved.hearts+'）</button></div><div class="field-label" style="margin-top:20px">新しく始める（今の冒険は失われます）</div>':'<div class="field-label" style="margin-top:14px">最初の色を選ぶ</div>')
+   +(saved?'<div class="menu"><button class="primary" id="cont">続きから（'+(saved.hard?'ハード'+saved.hard+'周目・':'')+esc(ADV_AREA[saved.areas[Math.min(saved.areaIdx,saved.areas.length-1)]].name)+'・所持金'+saved.gold+'G・ハート'+saved.hearts+'）</button></div><div class="field-label" style="margin-top:20px">新しく始める（今の冒険は失われます）</div>':'')
+   +'<div class="field-label" style="margin-top:14px">難易度</div><div class="seg" id="segD"><button data-v="0" class="'+(advDiffSel?'':'on')+'">ノーマル</button><button data-v="1" class="'+(advDiffSel?'on':'')+'">ハード'+(nextLoop>1?'（'+nextLoop+'周目）':'')+'</button></div>'
+   +'<div class="sub advdiff">'+(advDiffSel?'敵は常に強いCPU。通常戦闘の敵はデッキが1段強く、強敵・地域の主・最終ボスは敵のクリーチャーだけ体力+1。封印の効き目は3分の2。報酬のゴールドは+25%。ハードを制覇するたびに周回が進み、最終ボスはさらに強くなります。':'はじめての方はこちら。')
+     +(rec.normal||rec.hard?'<br>記録：ノーマル制覇 '+rec.normal+'回'+(rec.hard?' ・ ハード '+rec.hard+'周目まで制覇':''):'')+'</div>'
+   +'<div class="field-label" style="margin-top:14px">最初の色を選ぶ</div>'
    +'<div class="advcolors">'+AN.ATTR_ORDER.map(a=>'<button data-c="'+a+'" style="--ac:'+AN.ATTRS[a].c+'"><span class="ico">'+AN.iconSvg({i:ADV_AREA[a].icon})+'</span>'+AN.ATTRS[a].n+'<small>'+AN.ATTRS[a].k+'</small></button>').join('')+'</div></div>';
   s.querySelector('#back').onclick=()=>show('title');
+  s.querySelectorAll('#segD button').forEach(b=>b.onclick=()=>{ advDiffSel=+b.dataset.v; renderAdvStart(); });
   const c=s.querySelector('#cont'); if(c) c.onclick=()=>{ advRun=saved; const m={ante:'advAnte',event:'advEvent',shop:'advShop',inn:'advInn',reward:'advReward'}; show((advRun.stage==='battle')?'advAnte':(m[advRun.stage]||'advMap')); };
-  s.querySelectorAll('.advcolors button').forEach(b=>b.onclick=()=>{ const go=()=>{ advNewRun(b.dataset.c); show('advMap'); }; if(saved) askConfirm('今の冒険を捨てて、'+AN.ATTRS[b.dataset.c].n+'で新しく始めますか？（今の冒険は失われます）','新しく始める',go); else go(); });
+  s.querySelectorAll('.advcolors button').forEach(b=>b.onclick=()=>{ const go=()=>{ advNewRun(b.dataset.c, advDiffSel?nextLoop:0); show('advMap'); }; if(saved) askConfirm('今の冒険を捨てて、'+AN.ATTRS[b.dataset.c].n+'で新しく始めますか？（今の冒険は失われます）','新しく始める',go); else go(); });
 }
 function advHeader(){
   const a=advArea(); const A=a?ADV_AREA[a]:null;
   return '<div class="advhead" style="--ac:'+(a?AN.ATTRS[a].c:'#C58CFF')+'"><div class="an">'+(A?esc(A.name)+' ・ '+(advRun.floor<5?(advRun.floor+1)+'階':'主の間'):'歪みの果て')+'</div><div class="st">♥'+'♥'.repeat(Math.max(0,advRun.hearts-1))+'<span class="lost">'+'♡'.repeat(advRun.maxHearts-advRun.hearts)+'</span>　'+advRun.gold+'G　所持'+advRun.col.length+'枚</div>'
-   +(advSeals()?'<div class="buff" style="color:#C58CFF">歪みの封印：'+advSeals()+'</div>':'')
+   +(advLoop()?'<div class="buff" style="color:#FF8A7A">ハード '+advLoop()+'周目</div>':'')
+   +(advSeals()?'<div class="buff" style="color:#C58CFF">歪みの封印：'+advSeals()+(advLoop()?'（ハードでの効き目 '+advSealEff()+'）':'')+'</div>':'')
    +(a&&advRun.areaIdx>0?'<div class="buff">強敵との戦いでは、'+AN.ATTRS[a].n+'属性のクリーチャーが+1/+1</div>':(a?'<div class="buff">最初の地域では、まだ地域の力は働かない</div>':''))+'</div>';
 }
 // ---------- 画面：地図（分かれ道） ----------
@@ -3434,13 +3479,14 @@ function advMakeEnemy(kind, strong){
     const vals=d=>AN.cardValue(d)/Math.max(1,d.cost)*(d.cost<=4?1.15:1)+rng()*0.4;
     pool.sort((a,b)=>vals(b)-vals(a));
     // v3.9.1: 封印（3体目以降に倒した地域の主の数）ごとに力が削がれる
-    const sl=advSeals();
+    const sl=advSealEff(), FS=advFinalScale();
     const an=[AN.makeLegend(rng,1500),AN.makeAnomaly(rng,1504,null),AN.makeAnomaly(rng,1505,null)].slice(0, Math.max(0,3-sl));
+    for(let k=0;k<FS.xl;k++) an.push(AN.makeLegend(rng,1600+k*3));
     const commons=AN.CARDS.filter(d=>(d.attr.includes('void')||d.attr.includes('flare'))&&d.rarity==='C');
     const nC=Math.min(27, sl*3);
     const deck=an.concat(pool.slice(12, 12+(30-an.length)-nC)).concat(Array.from({length:nC},()=>rng.pick(commons)));
     const rules = sl>=6 ? null : (sl>=4 ? {devour:true} : {devour:true, phase:15});
-    return { name:'万象喰らい ザルヴァ＝ネクス', attr:'void', life:Math.max(12,30-3*sl), leader:null, energy:0, level:3, deck, final:true, secret:true, rules, kind };
+    return { name:'万象喰らい ザルヴァ＝ネクス', attr:'void', life:Math.max(12,30-3*sl)+FS.life, leader:null, energy:FS.energy, buff:FS.buff, level:3, deck:deck.slice(0,30), final:true, secret:true, rules, kind };
   }
   const A=ADV_AREA[a];
   // v3.8: 最初の地域は、敵も初期デッキと同じ作り方（ランダムなコモン中心・選り好みなし）にし、階が進むほど少しずつ強くする
@@ -3450,12 +3496,14 @@ function advMakeEnemy(kind, strong){
     const nu = kind==='elite'?4:(kind==='boss'?3:Math.round(2*Math.min(1,floor/5)));
     const deck=[]; for(let k=0;k<30-nu-8;k++) deck.push(rng.pick(cc)); for(let k=0;k<nu;k++) deck.push(rng.pick(cu)); for(let k=0;k<8;k++) deck.push(rng.pick(nc));
     if(kind==='elite') deck[0]=AN.makeAnomaly(rng,701,null);
-    const life = kind==='battle' ? 16+Math.floor(floor/2) : 20;
-    const level = kind==='battle' ? (floor<=2?1:2) : (kind==='boss'?3:2);
-    return { name: kind==='boss'?A.boss:(kind==='elite'?A.elite:rng.pick(A.enemies)), attr:a, life, leader: kind==='boss'?A.bossLeader:null, energy:0, level, deck, kind };
+    const HM=advHardMods(kind, false);
+    const life = (kind==='battle' ? 16+Math.floor(floor/2) : 20) + (HM?HM.life:0);
+    const level = HM ? HM.level : (kind==='battle' ? (floor<=2?1:2) : (kind==='boss'?3:2));
+    return { name: kind==='boss'?A.boss:(kind==='elite'?A.elite:rng.pick(A.enemies)), attr:a, life, leader: kind==='boss'?A.bossLeader:null, energy:0, level, deck, kind, buff:HM?HM.buff:null };
   }
   // v3.5: 地域の主は通常戦闘と同じデッキ強度・ライフで、リーダー能力だけが強化されている
-  const tiers={battle:[['C'],['C','U'],['C','U','R']], elite:[['C','U'],['C','U','R'],['C','U','R','L']], boss:[['C'],['C','U'],['C','U','R']]}[kind][ai];
+  const HM=advHardMods(kind, strong);
+  const tiers={battle:[['C'],['C','U'],['C','U','R']], elite:[['C','U'],['C','U','R'],['C','U','R','L']], boss:[['C'],['C','U'],['C','U','R']]}[kind][HM&&HM.tierUp?Math.min(2,ai+1):ai];
   let pool=[]; AN.CARDS.forEach(d=>{ if((d.attr.includes(a)||d.attr.length===0) && tiers.includes(d.rarity)) pool.push(d); });
   pool=rng.shuffle(pool.concat(pool)).slice(0, 50);
   const nAn = kind==='elite' ? 1 : (ai>=1?1:0);
@@ -3463,8 +3511,8 @@ function advMakeEnemy(kind, strong){
   if(strong) pool.unshift(AN.makeLegend(rng, 760));
   const deck=AN.AI.autoDeck(pool, rng, a);
   while(deck.length<30) deck.push(rng.pick(pool));
-  const life = (kind==='elite' ? 25+ai*3 : 20+ai*3) + (strong?5:0) + xl;
-  return { name: strong? rng.pick(['さすらいの剣豪','古き魔導王','放浪の竜騎士','影を連れた旅人']) : kind==='boss'?A.boss:(kind==='elite'?A.elite:rng.pick(A.enemies)), attr:a, life, strong:!!strong, leader: kind==='boss'?A.bossLeader:null, energy:0, level: kind==='battle'&&ai===0?2:3, deck, kind };
+  const life = (kind==='elite' ? 25+ai*3 : 20+ai*3) + (strong?5:0) + xl + (HM?HM.life:0);
+  return { name: strong? rng.pick(['さすらいの剣豪','古き魔導王','放浪の竜騎士','影を連れた旅人']) : kind==='boss'?A.boss:(kind==='elite'?A.elite:rng.pick(A.enemies)), attr:a, life, strong:!!strong, leader: kind==='boss'?A.bossLeader:null, energy:0, level: HM?3:(kind==='battle'&&ai===0?2:3), deck, kind, buff:HM?HM.buff:null };
 }
 function advPrepBattle(kind, opt){
   opt=opt||{};
@@ -3473,7 +3521,7 @@ function advPrepBattle(kind, opt){
   advRun.stage='ante'; advSave(); show('advAnte');
 }
 function advRewardText(rk){ return ({battle:'カード1枚（あなたの色のコモン〜アンコモンから3枚提示）',elite:'カード1枚（あなたの色のアンコモン〜レアから3枚提示）',boss:'地域の主の秘宝（冒険限定の強力なカード）＋カード1枚（あなたの色のレア〜レジェンドと伝説のアノマリーから3枚提示）',champion:'カード1枚（あなたの色のレア〜レジェンドと伝説のアノマリーから3枚提示）'})[rk]||''; }
-function advGoldFor(P){ const ai=advRun.areaIdx; return (P.kind==='battle' ? 25+ai*10 : P.kind==='elite' ? 50+ai*15 : P.kind==='boss' ? 100 : 0) + (P.bonus||0); }
+function advGoldFor(P){ const ai=advRun.areaIdx; return Math.round(((P.kind==='battle' ? 25+ai*10 : P.kind==='elite' ? 50+ai*15 : P.kind==='boss' ? 100 : 0) + (P.bonus||0)) * (advLoop()?1.25:1)); } // ハードは報酬のゴールド+25%
 function advMyColors(){ const st=new Set(advAttrs(advDeckDefs())); st.add(advRun.start); return [...st]; }
 function advRewardPicks(rk, rng){
   const cols=advMyColors();
@@ -3490,8 +3538,9 @@ function renderAdvAnte(){
   const a=P.en.attr; const buff = a && P.kind==='elite' && advRun.areaIdx>0;
   s.innerHTML=advHeader()+'<div class="scroll wrap" style="text-align:center">'
    +'<div class="advfoe" style="--ac:'+(a?AN.ATTRS[a].c:'#C58CFF')+'"><span class="ico">'+AN.iconSvg({i:P.kind==='boss'?'crown':(P.en.strong?'knight':(P.kind==='elite'?'helm':(P.en.final?'darkcrown':'soldier')))})+'</span><div><div class="fn">'+esc(P.en.name)+'</div><div class="sub">'
-   +(P.en.secret?'最終決戦 ・ '+(advSeals()?'封印'+advSeals()+'により、その力は削がれている':'その力は計り知れない'):(({battle:'',elite:'強敵 ・ ',boss:'地域の主 ・ ',final:'最終決戦 ・ '}[P.kind])+(P.en.strong?'さすらいの強者 ・ ':'')+'ライフ'+P.en.life+(P.en.leader?' ・ 能力「'+esc(AN.LEADER_EX[P.en.leader].name)+'」':'')))+'</div></div></div>'
+   +(P.en.secret?'最終決戦 ・ '+(advLoop()?'ハード'+advLoop()+'周目の力 ・ ':'')+(advSeals()?'封印'+advSeals()+'により、その力は削がれている':'その力は計り知れない'):(({battle:'',elite:'強敵 ・ ',boss:'地域の主 ・ ',final:'最終決戦 ・ '}[P.kind])+(P.en.strong?'さすらいの強者 ・ ':'')+'ライフ'+P.en.life+(P.en.leader?' ・ 能力「'+esc(AN.LEADER_EX[P.en.leader].name)+'」':'')))+'</div></div></div>'
    +(buff?'<div class="sub" style="margin-bottom:8px;color:#FFD86B">この戦いでは'+AN.ATTRS[a].n+'属性のクリーチャーが敵味方とも+1/+1</div>':'')
+   +(advLoop()&&!P.en.secret?(()=>{ const HM=advHardMods(P.kind,P.en.strong); const t=['強いCPU','ライフ+'+HM.life]; if(HM.tierUp&&advRun.areaIdx>0) t.push('デッキが1段強い'); if(P.en.buff) t.push('敵のクリーチャーだけ体力+1'); return '<div class="sub" style="margin-bottom:8px;color:#FF8A7A">ハード：'+t.join('・')+'</div>'; })():'')
    +(P.kind!=='final'?'<div class="advreward"><b>勝利報酬</b><div>'+advGoldFor(P)+'G ・ '+advRewardText(P.rewardKind)+'</div><div class="sub">負けるとハートが1つ減ります（カードは失いません）</div></div>':'')
    +'<div class="menu"><button class="primary" id="fight">戦う</button><button class="ghost" id="deck">デッキを確認</button></div></div>';
   s.querySelector('#fight').onclick=advFight;
@@ -3505,8 +3554,9 @@ function advFight(){
   series={ adv:true, online:null, boss:null, level:P.en.level, wins:[0,0], gameNo:1, format:1, mains:[myMain,P.en.attr], pools:[[],[]], decks:[[],[]] };
   ui.me=0;
   game=new AN.Game({ seed:advRun.seed+':g'+advRng('g')(), decks:[myDefs, P.en.deck], names:['あなた', P.en.name], mains:[myMain, P.en.attr], choosers:[null, AN.AI.chooser(P.en.level)],
-    lifes:[0,P.en.life], leaders:[null,P.en.leader], energyBonus:[0,P.en.energy], fieldBuff: buffOn?{attr:a,n:1}:null, bossRules: P.en.final?[null,P.en.rules]:null });
+    lifes:[0,P.en.life], leaders:[null,P.en.leader], energyBonus:[0,P.en.energy], sideBuff:[null,P.en.buff||null], fieldBuff: buffOn?{attr:a,n:1}:null, bossRules: P.en.final?[null,P.en.rules]:null });
   if(buffOn) game.say('この地の力：'+AN.ATTRS[a].n+'属性のクリーチャーは+1/+1','turn');
+  if(P.en.buff) game.say('ハード：'+P.en.name+'のクリーチャーは'+(P.en.buff.atk?'+'+P.en.buff.atk:'+0')+'/+'+P.en.buff.hp+(P.en.energy?'、最大エナジー+'+P.en.energy:''),'turn');
   game.uiPause=true;
   ui.attackFrom=null; evSeen=0; ui.mullSel=new Set();
   game.mulligan(game.players[1], AN.AI.mullPick(game,1));
@@ -3539,8 +3589,9 @@ function renderAdvReward(){
 }
 function advAfterReward(R){ advRun.lastResult=null; advEnsureDeck(); if(!R.won){ advRun.choices=null; advGenChoices(); advRun.stage='map'; advSave(); show('advMap'); return; } advNext(); }
 function advEnd(victory){
-  const s=screenEl('advEnd'); const r=advRun;
-  s.innerHTML='<div class="result"><div class="big" style="color:'+(victory?'#FFD86B':'#f28f8f')+'">'+(victory?'歪みの果てを制覇':'冒険の終わり')+'</div><div class="sub">'+(victory?'すべての歪みを鎮め、あなたの名は語り継がれる。':'ハートが尽きた。')+'</div><div class="sub">勝利 '+r.wins+' ・ 敗北 '+r.losses+' ・ 所持カード '+r.col.length+'枚 ・ '+r.gold+'G</div><div class="menu" style="width:100%;max-width:320px"><button class="primary" id="home">タイトルへ</button></div></div>';
+  const s=screenEl('advEnd'); const r=advRun; const L=r.hard||0;
+  if(victory){ const rec=advRecord(); if(L) rec.hard=Math.max(rec.hard,L); else rec.normal++; advSaveRecord(rec); }
+  s.innerHTML='<div class="result"><div class="big" style="color:'+(victory?'#FFD86B':'#f28f8f')+'">'+(victory?'歪みの果てを制覇':'冒険の終わり')+'</div><div class="sub">'+(victory?'すべての歪みを鎮め、あなたの名は語り継がれる。':'ハートが尽きた。')+'</div>'+(L?'<div class="sub" style="color:#FF8A7A">ハード '+L+'周目'+(victory?'を制覇。次の周回では、万象喰らいがさらに強くなって待っている。':'')+'</div>':'')+(victory&&!L?'<div class="sub">冒険モードの開始画面で「ハード」を選べます。</div>':'')+'<div class="sub">勝利 '+r.wins+' ・ 敗北 '+r.losses+' ・ 所持カード '+r.col.length+'枚 ・ '+r.gold+'G</div><div class="menu" style="width:100%;max-width:320px"><button class="primary" id="home">タイトルへ</button></div></div>';
   advClear(); advRun=null;
   s.querySelector('#home').onclick=()=>show('title');
 }

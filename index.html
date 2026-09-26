@@ -530,7 +530,7 @@ P('R18','天の裁き','ray',6,'U',[ef('cast','dmgAll',{n:1}),ef('cast','destroy
 K('R19','守護天使','ray',5,'U',['blocker'],[ef('etb','heal',{n:4})],{i:'angel'}),
 P('R20','聖なる盾','ray',1,'U',[ef('cast','grant',{kw:'armor'})],{i:'shield'}),
 P('R21','光の軍旗','ray',4,'U',[ef('cast','grantAll',{kw:'armor'})],{i:'banner'}),
-P('R22','天使の軍勢','ray',4,'U',[ef('cast','tokens',{n:2,tok:'ray'}),ef('cast','heal',{n:2})],{i:'wings'}),
+P('R22','天使の軍勢','ray',4,'U',[ef('cast','tokens',{n:2,tok:'angel'}),ef('cast','heal',{n:2})],{i:'wings'}), // v3.20: 光の羽（1/1）2体→天使（2/3・守護）2体。2コストの光の羽の召喚とほぼ同じで弱かったため
 P('R23','祈りの導き','ray',2,'U',[ef('cast','discover',{})],{i:'candle'}),
 K('R24','光の審判者','ray',5,'U',[],[ef('etb','destroy',{damaged:true,anyIf:{pray:6}})],{i:'scales',st:[4,5]}), // v3.18.2: 祈り6で2体破壊→「対象の制限が外れる」に。4/6→4/5（冒険で3枚積むと勝率+13pt、レア並みに）
 K('R25','慈愛の聖女','ray',3,'U',[],[ef('turnstart','heal',{n:2})],{i:'dove'}),
@@ -1013,6 +1013,7 @@ const TOKENS = {
   flare:{ id:'tok_flare', name:'火花', attr:['flare'], type:'creature', cost:1, power:1, hp:1, rarity:'C', kw:['haste'], effects:[], token:true },
   tide: { id:'tok_tide', name:'泡', attr:['tide'], type:'creature', cost:1, power:1, hp:1, rarity:'C', kw:[], effects:[], token:true },
   grow: { id:'tok_grow', name:'苗木', attr:['grow'], type:'creature', cost:1, power:1, hp:1, rarity:'C', kw:[], effects:[ef('turnstart','pumpSelf',{n:1})], token:true },
+  angel:{ id:'tok_angel', name:'天使', attr:['ray'], type:'creature', cost:2, power:2, hp:3, rarity:'C', kw:['blocker'], effects:[], token:true, i:'angel' },
   ray:  { id:'tok_ray', name:'光の羽', attr:['ray'], type:'creature', cost:1, power:1, hp:1, rarity:'C', kw:['blocker'], effects:[], token:true },
   void: { id:'tok_skull', name:'骸', attr:['void'], type:'creature', cost:1, power:1, hp:1, rarity:'C', kw:[], effects:[], token:true },
   none: { id:'tok_none', name:'兵士', attr:[], type:'creature', cost:1, power:1, hp:1, rarity:'C', kw:[], effects:[], token:true },
@@ -2004,7 +2005,7 @@ function step(g, level){
             if(x.e==='bounceAll'){ s = oField.length>=2? 3+oField.length*1.5 : -3; }
             if(x.e==='tap'){ const ready=p.field.filter(c=>g.canAttackWith(p,c)); const un=oField.filter(c=>!c.stun); const k=un.filter(c=>ready.some(a=>g.power(a)>=g.health(c)&&g.power(c)>=g.health(a))); s = k.length? 3+Math.max(...k.map(c=>creatureThreat(g,c))) : (un.some(c=>g.hasKw(c,'blocker'))&&ready.length? 2 : -4); }
             if(x.e==='tapAll'){ const ready=p.field.filter(c=>g.canAttackWith(p,c)); s = oField.filter(c=>!c.stun).length>=2 && ready.length>=2 ? 5+ready.length : -4; }
-            if(x.e==='heal'){ s = p.life<=12 ? 3+(20-p.life)/3 : -2; }
+            if(x.e==='heal'){ if(d.effects.length>1 && d.effects[0]!==x) s += p.life<=12 ? 2 : 0; else s = p.life<=12 ? 3+(20-p.life)/3 : -2; } // v3.20: 回復が「おまけ」のスペルは、回復の評価で全体を打ち消さない
             if(x.e==='draw'){ s = p.hand.length<=3 ? 4 : 2; }
             if(x.e==='ramp'){ s = energyN<7 ? 4 : -2; }
             if(x.e==='energyNow'){ const after=free-g.costOf(p,d,scoredCard)+x.n; s = p.hand.some(c=>c!==scoredCard && g.costOf(p,c.d,c)<=after && g.costOf(p,c.d,c)>free-g.costOf(p,d,scoredCard)) ? 6 : -3; }
@@ -2050,7 +2051,7 @@ function step(g, level){
             if(x.e==='swapGraveDeck'){ s = p.deck.length<=3 && p.grave.length>5 ? 6 : -6; }
             if(x.e==='shuffleOwners'){ const tp=o.field.reduce((a,c)=>a+g.power(c),0), mp=p.field.reduce((a,c)=>a+g.power(c),0); s = tp>mp+4 ? 3 : -4; }
             if(x.e==='shrinkAll'){ const tp=o.field.reduce((a,c)=>a+g.power(c),0), mp=p.field.reduce((a,c)=>a+g.power(c),0); s = tp>mp+4 ? 4 : -4; }
-            if(x.e==='tokens'){ s = p.field.length+x.n<=7 ? 2+x.n : -3; }
+            if(x.e==='tokens'){ const t=AN.TOKENS[x.tok||'none']; s = p.field.length+x.n<=7 ? 1+x.n*(t.power+t.hp)*0.6 : -3; } // v3.20: トークンの大きさも評価
             if(x.e==='discover'||x.e==='randomCard'||x.e==='tutor'){ s = p.hand.length<=4 ? 3 : 1; }
             if(x.e==='scry'){ s = 2.5; }
             if(x.e==='randomDmg'){ s = 2+oField.filter(c=>g.health(c)<=2).length; }
@@ -3030,6 +3031,26 @@ function screenEl(id){ try{ AN.BGM.play(bgmKeyFor(id)); }catch(e){}
 function div(cls, html){ const d=document.createElement('div'); d.className=cls||''; if(html!=null) d.innerHTML=html; return d; }
 
 // ----- title -----
+// v3.20 データの引き継ぎ：このブラウザに保存している進行（冒険・シリーズ・ボス・記録・設定）を、文字列またはファイルで書き出し／読み込み
+function dataExport(){ const o={}; try{ for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(k&&k.startsWith('anomaly_')) o[k]=localStorage.getItem(k); } }catch(e){} return 'ANOMALY1:'+btoa(unescape(encodeURIComponent(JSON.stringify({v:1,t:Date.now(),d:o})))); }
+function dataImport(txt){ const s=String(txt||'').trim(); if(!s.startsWith('ANOMALY1:')) throw new Error('形式が違います'); const j=JSON.parse(decodeURIComponent(escape(atob(s.slice(9))))); if(!j||!j.d) throw new Error('中身が読めません');
+  Object.keys(j.d).forEach(k=>{ if(k.startsWith('anomaly_')) localStorage.setItem(k, j.d[k]); }); return Object.keys(j.d).length; }
+function dataSheet(){
+  const code=dataExport();
+  const sh=sheet('<h3>データの引き継ぎ</h3><div class="sub" style="line-height:1.7;margin-bottom:8px">冒険の進み具合・ボス挑戦・ハードの記録・設定などを書き出せます。ブラウザのデータを消す前や、別の端末に移すときに使ってください。</div>'
+    +'<div class="field-label">書き出す</div><div class="btns" style="flex-wrap:wrap"><button class="primary" id="dcopy">コードをコピー</button><button id="dfile">ファイルに保存</button></div>'
+    +'<div class="field-label" style="margin-top:14px">読み込む（今のデータは上書きされます）</div><textarea id="dtxt" rows="3" style="width:100%;font-size:12px" placeholder="ここにコードを貼り付け"></textarea>'
+    +'<div class="btns" style="flex-wrap:wrap"><button id="dload">コードから読み込む</button><button id="dopen">ファイルから読み込む</button><input type="file" id="dinput" accept=".txt,text/plain" style="display:none"></div>'
+    +'<div class="btns"><button class="ghost" id="dclose">閉じる</button></div>', true);
+  const done=n=>{ toast(n+'件のデータを読み込みました'); setTimeout(()=>location.reload(),900); };
+  const tryImport=t=>{ try{ done(dataImport(t)); }catch(e){ toast('読み込めませんでした：'+e.message); } };
+  sh.querySelector('#dcopy').onclick=()=>{ (navigator.clipboard?navigator.clipboard.writeText(code):Promise.reject()).then(()=>toast('コピーしました')).catch(()=>{ const ta=sh.querySelector('#dtxt'); ta.value=code; ta.select(); toast('下の欄のコードをコピーしてください'); }); };
+  sh.querySelector('#dfile').onclick=()=>{ const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([code],{type:'text/plain'})); a.download='anomaly-save-'+new Date().toISOString().slice(0,10)+'.txt'; document.body.appendChild(a); a.click(); a.remove(); };
+  sh.querySelector('#dload').onclick=()=>askConfirm('今のデータを上書きして読み込みますか？','読み込む',()=>tryImport(sh.querySelector('#dtxt').value));
+  sh.querySelector('#dopen').onclick=()=>sh.querySelector('#dinput').click();
+  sh.querySelector('#dinput').onchange=e=>{ const f=e.target.files[0]; if(!f) return; f.text().then(t=>askConfirm('今のデータを上書きして読み込みますか？','読み込む',()=>tryImport(t))); };
+  sh.querySelector('#dclose').onclick=()=>closeSheet();
+}
 function renderTitle(){
   const s=screenEl('title'); s.classList.add('hasart'); s.style.setProperty('--art','url('+ART('title')+')');
   const saved=load();
@@ -3044,11 +3065,13 @@ function renderTitle(){
    +'<button id="btnOnline">オンライン対戦（部屋コード）</button>'
    +(loadOnline()?'<button id="btnOnlineResume">オンライン対戦を再開（部屋 '+esc(loadOnline().code)+'）</button>':'')
    +'<button id="btnCodex">カードリスト（図鑑）</button>'
+   +'<button class="ghost" id="btnData">データの引き継ぎ（バックアップ）</button>'
    +'<button class="ghost" id="btnSnd">'+sndIcon()+' サウンド（音楽 '+(AN.BGM.isOn()?'オン':'オフ')+'・効果音 '+(AN.SFX.isMuted()?'オフ':'オン')+'）</button>'
-   +'</div><div class="sub" style="margin-top:28px;font-size:11px">v3.19 — CPU戦・'+AN.CARDS.length+'種プール</div></div></div>';
+   +'</div><div class="sub" style="margin-top:28px;font-size:11px">v3.20 — CPU戦・'+AN.CARDS.length+'種プール</div></div></div>';
   s.querySelector('#btnNew').onclick=()=>show('setup');
   s.querySelector('#btnCodex').onclick=()=>show('codex');
   s.querySelector('#btnSnd').onclick=()=>soundSheet(()=>renderTitle());
+  s.querySelector('#btnData').onclick=()=>dataSheet();
   s.querySelector('#btnOnline').onclick=()=>show('lobby');
   s.querySelector('#btnBoss').onclick=()=>show('boss');
   s.querySelector('#btnAdv').onclick=()=>show('advStart');
@@ -3065,12 +3088,14 @@ function renderSetup(){
    +'<div class="field-label">形式</div><div class="seg" id="segF"><button data-v="3">BO3（2本先取）</button><button data-v="5">BO5（3本先取）</button></div>'
    +'<div class="field-label">CPUの強さ</div><div class="seg" id="segL"><button data-v="1">弱</button><button data-v="2">中</button><button data-v="3">強</button></div>'
    +'<div class="field-label">シード（空欄ならランダム。同じシードなら同じ90枚が配られる）</div><input type="text" id="seed" placeholder="例: fujisawa" value="'+esc(setup.seed)+'">'
-   +'<div style="margin-top:26px"><button class="primary" id="go" style="width:100%">90枚を受け取る</button></div>'
+   +'<div style="margin-top:26px"><button class="primary" id="go" style="width:100%">90枚を受け取る（自分でデッキを組む）</button></div>'
+   +'<div style="margin-top:10px"><button id="quick" style="width:100%">おまかせデッキですぐ始める</button><div class="sub" style="margin-top:6px;font-size:12px">90枚から自動で組んだデッキで、すぐに1戦目を始めます。2戦目からは自分で調整できます。</div></div>'
    +'<div class="sub" style="margin-top:18px;line-height:1.7">・87枚はランダムな3属性から各25枚前後＋無属性12枚前後を抽選（コモン60% / アンコモン28% / レア10% / レジェンド2%）<br>・90枚を見てからメイン属性を決めます。デッキはメイン属性＋無属性＋アノマリー<br>・3枚はその場で生成される「アノマリー」。相手はあなたがプレイするまで効果を知りません<br>・エナジーは毎ターン自動で1増え（上限10）、ターン開始時に全回復<br>・初期手札は先攻4枚・後攻5枚。後攻には0コストの「星のかけら」（そのターンのエナジー+1）も配られます<br>・デッキは30枚ちょうど。ゲーム間にメイン属性も含めて組み直せます<br>・クリーチャーは左下が攻撃力、右下が体力</div></div>';
   const seg=(id,key)=>{ s.querySelectorAll('#'+id+' button').forEach(b=>{ b.classList.toggle('on', +b.dataset.v===setup[key]); b.onclick=()=>{ setup[key]=+b.dataset.v; renderSetup(); }; }); };
   seg('segF','format'); seg('segL','level');
   s.querySelector('#back').onclick=()=>show('title');
   s.querySelector('#go').onclick=()=>{ setup.seed=s.querySelector('#seed').value.trim(); newSeries(); setup.seed=''; };
+  s.querySelector('#quick').onclick=()=>{ setup.seed=s.querySelector('#seed').value.trim(); setup.quick=true; newSeries(); setup.quick=false; setup.seed=''; };
 }
 function newSeries(){
   const seed=setup.seed||('s'+Math.floor(Math.random()*1e9).toString(36));
@@ -3082,6 +3107,10 @@ function newSeries(){
   if(setup.boss){ boss=AN.BOSSES.find(b=>b.key===setup.boss); bd=AN.AI.bossDeck(boss, rng); pools[1]=bd.pool; mains[1]=boss.attr||null; }
   series={seed, format:boss?1:setup.format, level:boss?3:setup.level, wins:[0,0], gameNo:1, pools, decks:[[],[]], nextFirst:null, mains, boss:boss?boss.key:null};
   series.decks[1]= boss ? indicesFor(pools[1], bd.deck) : indicesFor(pools[1], AN.AI.autoDeck(pools[1],rng,mains[1]));
+  if(setup.quick && !boss){ // v3.20 おまかせデッキ：自分のデッキも自動で組んで、すぐに1戦目へ
+    const r2=AN.makeRng('quick:'+seed); series.mains[0]=AN.AI.bestMain(pools[0]); series.decks[0]=indicesFor(pools[0], AN.AI.autoDeck(pools[0],r2,series.mains[0]));
+    save(); startGame(); return;
+  }
   save(); show('draft');
 }
 function indicesFor(pool, defs){ const used=new Set(); const out=[]; defs.forEach(d=>{ for(let i=0;i<pool.length;i++){ if(pool[i]===d&&!used.has(i)){ used.add(i); out.push(i); break; } } }); return out; }

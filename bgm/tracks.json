@@ -1,30 +1,58 @@
 {
  "title": {
-  "len": 17.60071,
-  "gain": 0.822
+  "start": 1.0,
+  "loopStart": 1.0,
+  "loopEnd": 18.60071,
+  "flen": 19.60071,
+  "gain": 0.822,
+  "group": "title"
  },
  "map": {
-  "len": 20.7735,
-  "gain": 0.668
- },
- "battle": {
-  "len": 20.76115,
-  "gain": 1.012
+  "start": 1.0,
+  "loopStart": 1.0,
+  "loopEnd": 21.7735,
+  "flen": 22.7735,
+  "gain": 0.668,
+  "group": "map"
  },
  "boss": {
-  "len": 20.77146,
-  "gain": 0.822
+  "start": 0,
+  "loopStart": 53.777,
+  "loopEnd": 151.58,
+  "flen": 152.08,
+  "gain": 0.631,
+  "group": "boss"
  },
  "final": {
-  "len": 20.76167,
-  "gain": 0.759
+  "start": 0,
+  "loopStart": 44.42,
+  "loopEnd": 146.797,
+  "flen": 147.297,
+  "gain": 0.543,
+  "group": "final"
  },
  "judge": {
-  "len": 14.96102,
-  "gain": 0.638
+  "start": 0,
+  "loopStart": 20.062,
+  "loopEnd": 147.075,
+  "flen": 147.575,
+  "gain": 0.785,
+  "group": "judge"
  },
  "tavern": {
-  "len": 19.8975,
-  "gain": 0.617
+  "start": 1.0,
+  "loopStart": 1.0,
+  "loopEnd": 20.8975,
+  "flen": 21.8975,
+  "gain": 0.617,
+  "group": "tavern"
+ },
+ "battle1": {
+  "start": 0,
+  "loopStart": 26.099,
+  "loopEnd": 154.575,
+  "flen": 155.075,
+  "gain": 0.661,
+  "group": "battle"
  }
 }

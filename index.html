@@ -2446,53 +2446,60 @@ async function renderOffline(name, arg, sec){
 AN.SFX={ renderOffline, play, later, names:Object.keys(S), state:()=>ac?ac.state:'none', isMuted:()=>muted, setMuted(v){ muted=!!v; try{ localStorage.setItem(LS, muted?'off':'on'); }catch(e){} if(!muted){ unlock(); setTimeout(()=>play('click'),30); } } };
 document.addEventListener('click', e=>{ const b=e.target.closest && e.target.closest('button'); if(b && !b.disabled) play('click'); }, true);
 
-// ---------------- BGM（v3.15：Sunoで作った曲をループ再生）----------------
-// 曲ファイル bgm/<key>.mp3 は、前後に「曲の終わり1秒」「曲の始まり1秒」をつなぎ足してある。
-// その内側 [PRE, PRE+len] をループさせるので、ブラウザが mp3 の頭や末尾に無音を足しても継ぎ目が途切れない。
-// gain は曲ごとの音量差を -18 LUFS にそろえる倍率。
-const BGM_PRE=1.0, BGM_TRACKS={"title": {"len": 17.60071, "gain": 0.822}, "map": {"len": 20.7735, "gain": 0.668}, "battle": {"len": 20.76115, "gain": 1.012}, "boss": {"len": 20.77146, "gain": 0.822}, "final": {"len": 20.76167, "gain": 0.759}, "judge": {"len": 14.96102, "gain": 0.638}, "tavern": {"len": 19.8975, "gain": 0.617}};
+// ---------------- BGM（v3.15〜：Sunoで作った曲をループ再生）----------------
+// tracks.json の各曲：start＝再生開始位置、[loopStart, loopEnd]＝くり返す区間、flen＝ファイルの長さ、gain＝-18 LUFS にそろえる倍率、group＝場面
+//  短い Loop 曲：前後に1秒ずつ曲をつなぎ足し、その内側をループ（make_bgm.py）
+//  長い Song 曲：頭の部分は最初の1回だけ流し、ループ点の手前0.5秒で重ねてある（make_bgm_song.py）
+// どちらも継ぎ目の前後が実際の音でつながっているので、ブラウザが mp3 に無音を足して数十ms ずれても途切れない。
+// 同じ group に曲が複数あれば、ループを2周したら次の曲へ切り替える（試合ごとに最初の曲も変える）
+const BGM_TRACKS={"title": {"start": 1.0, "loopStart": 1.0, "loopEnd": 18.60071, "flen": 19.60071, "gain": 0.822, "group": "title"}, "map": {"start": 1.0, "loopStart": 1.0, "loopEnd": 21.7735, "flen": 22.7735, "gain": 0.668, "group": "map"}, "boss": {"start": 0, "loopStart": 53.777, "loopEnd": 151.58, "flen": 152.08, "gain": 0.631, "group": "boss"}, "final": {"start": 0, "loopStart": 44.42, "loopEnd": 146.797, "flen": 147.297, "gain": 0.543, "group": "final"}, "judge": {"start": 0, "loopStart": 20.062, "loopEnd": 147.075, "flen": 147.575, "gain": 0.785, "group": "judge"}, "tavern": {"start": 1.0, "loopStart": 1.0, "loopEnd": 20.8975, "flen": 21.8975, "gain": 0.617, "group": "tavern"}, "battle1": {"start": 0, "loopStart": 26.099, "loopEnd": 154.575, "flen": 155.075, "gain": 0.661, "group": "battle"}};
 const MLS='anomaly_music_v1';
 let music={on:true, vol:0.5}; try{ Object.assign(music, JSON.parse(localStorage.getItem(MLS))||{}); }catch(e){}
-let mbus=null, want=null, curKey=null, curNode=null; const mbuf={}, mload={};
+let mbus=null, want=null, curKey=null, curNode=null, switchAt=0; const mbuf={}, mload={}, gpos={};
 function mSave(){ try{ localStorage.setItem(MLS, JSON.stringify(music)); }catch(e){} }
 function mBus(){ if(!ctx()) return null; if(!mbus){ mbus=ac.createGain(); mbus.gain.value=music.on?music.vol:0; mbus.connect(ac.destination); } return mbus; }
-function mLoad(key){ // 1曲を取り込んで復号する（同じ曲は一度だけ）
+function groupTracks(g){ return Object.keys(BGM_TRACKS).filter(k=>(BGM_TRACKS[k].group||k)===g).sort(); }
+function mLoad(key){
   if(mbuf[key]) return Promise.resolve(mbuf[key]); if(mload[key]) return mload[key];
   return mload[key]=fetch('bgm/'+key+'.mp3').then(r=>{ if(!r.ok) throw new Error(r.status); return r.arrayBuffer(); })
     .then(b=>new Promise((ok,ng)=>ac.decodeAudioData(b,ok,ng))).then(buf=>{ mbuf[key]=buf; mTrim(); return buf; })
     .catch(e=>{ delete mload[key]; return null; });
 }
-function mTrim(){ const keys=Object.keys(mbuf); if(keys.length<=3) return; keys.forEach(k=>{ if(Object.keys(mbuf).length>3 && k!==curKey && k!==want){ delete mbuf[k]; delete mload[k]; } }); } // メモリ節約：復号済みは3曲まで
-function mStart(key){
-  const T=BGM_TRACKS[key]; if(!T || !mBus() || ac.state!=='running') return;
+function mTrim(){ Object.keys(mbuf).forEach(k=>{ if(Object.keys(mbuf).length>3 && k!==curKey){ delete mbuf[k]; delete mload[k]; } }); } // 復号済みは3曲まで
+function mStart(group){
+  const list=groupTracks(group); if(!list.length || !mBus() || ac.state!=='running') return;
+  if(gpos[group]==null) gpos[group]=Math.floor(Math.random()*list.length); // 最初の曲はランダム
+  const key=list[gpos[group]%list.length], T=BGM_TRACKS[key];
   mLoad(key).then(buf=>{
-    if(!buf || want!==key || curKey===key) return;
-    const extra=Math.max(0, buf.duration-(T.len+2*BGM_PRE)); const d=Math.min(extra, 0.03); // 足された無音のずれ（両端を同じだけずらせば継ぎ目は保たれる）
-    const src=ac.createBufferSource(); src.buffer=buf; src.loop=true; src.loopStart=BGM_PRE+d; src.loopEnd=BGM_PRE+d+T.len;
+    if(!buf || want!==group || curKey===key) return;
+    const d=Math.min(Math.max(0, buf.duration-T.flen), 0.03);
+    const src=ac.createBufferSource(); src.buffer=buf; src.loop=true; src.loopStart=T.loopStart+d; src.loopEnd=T.loopEnd+d;
     const g=ac.createGain(); const t=ac.currentTime; g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(T.gain,t+1.2);
-    src.connect(g); g.connect(mbus); src.start(t, BGM_PRE+d);
-    mFadeOut(); curNode={src,g}; curKey=key;
+    src.connect(g); g.connect(mbus); src.start(t, T.start+d);
+    mFadeOut(); curNode={src,g,group}; curKey=key;
+    switchAt = list.length>1 ? t+(T.loopEnd-T.start)+(T.loopEnd-T.loopStart) : 0; // ループを2周したら次の曲へ
   });
 }
-function mFadeOut(){ if(!curNode) return; const {src,g}=curNode; const t=ac.currentTime; try{ g.gain.cancelScheduledValues(t); g.gain.setValueAtTime(Math.max(0.0001,g.gain.value),t); g.gain.exponentialRampToValueAtTime(0.0001,t+1.0); src.stop(t+1.05); }catch(e){} curNode=null; curKey=null; }
+function mFadeOut(){ if(!curNode) return; const {src,g}=curNode; const t=ac.currentTime; try{ g.gain.cancelScheduledValues(t); g.gain.setValueAtTime(Math.max(0.0001,g.gain.value),t); g.gain.exponentialRampToValueAtTime(0.0001,t+1.0); src.stop(t+1.05); }catch(e){} curNode=null; curKey=null; switchAt=0; }
+setInterval(()=>{ if(switchAt && ac && ac.state==='running' && ac.currentTime>=switchAt && want){ const g=want; gpos[g]=(gpos[g]||0)+1; mFadeOut(); mStart(g); } }, 1000);
 const BGM={
   play(key){ // 場面の曲を流す（同じ曲なら何もしない）。音が出せるようになる前なら、出せるようになった時に流す
-    if(key==null) return; want=key; if(key===curKey) return;
+    if(key==null) return; want=key; if(curNode && curNode.group===key) return;
     if(!music.on){ return; }
     if(ac && ac.state==='running') mStart(key);
   },
   stop(){ want=null; if(ac) mFadeOut(); },
   isOn:()=>music.on, vol:()=>music.vol,
-  setOn(v){ music.on=!!v; mSave(); if(!mBus()) return; mbus.gain.setTargetAtTime(music.on?music.vol:0, ac.currentTime, 0.1); if(music.on && want && want!==curKey){ unlock(); setTimeout(()=>mStart(want),60); } },
+  setOn(v){ music.on=!!v; mSave(); if(!mBus()) return; mbus.gain.setTargetAtTime(music.on?music.vol:0, ac.currentTime, 0.1); if(music.on && want && !(curNode&&curNode.group===want)){ unlock(); setTimeout(()=>mStart(want),60); } },
   setVol(v){ music.vol=Math.max(0,Math.min(1,+v)); mSave(); if(mBus()&&music.on) mbus.gain.setTargetAtTime(music.vol, ac.currentTime, 0.05); },
-  current:()=>curKey, tracks:Object.keys(BGM_TRACKS),
-  _kick(){ if(music.on && want && want!==curKey && ac && ac.state==='running') mStart(want); },
+  current:()=>curNode?curNode.group:null, track:()=>curKey, tracks:Object.keys(BGM_TRACKS), groups:()=>[...new Set(Object.values(BGM_TRACKS).map(t=>t.group))],
+  _kick(){ if(music.on && want && !(curNode&&curNode.group===want) && ac && ac.state==='running') mStart(want); },
 };
 AN.BGM=BGM;
 // 最初の操作で音が出せるようになったら、待っていた曲を流す
-['pointerdown','keydown','touchstart'].forEach(t=>window.addEventListener(t, ()=>{ setTimeout(()=>{ if(music.on && want && want!==curKey && ac && ac.state==='running') mStart(want); },80); }, {passive:true}));
+['pointerdown','keydown','touchstart'].forEach(t=>window.addEventListener(t, ()=>{ setTimeout(()=>{ if(music.on && want && !(curNode&&curNode.group===want) && ac && ac.state==='running') mStart(want); },80); }, {passive:true}));
 // 画面を離れている間は音を止める（スマホで裏に回したとき）
-document.addEventListener('visibilitychange', ()=>{ if(!ac) return; if(document.hidden){ if(ac.state==='running') ac.suspend(); } else if(ac.state==='suspended'){ ac.resume().then(()=>{ if(music.on && want && want!==curKey) mStart(want); }); } });
+document.addEventListener('visibilitychange', ()=>{ if(!ac) return; if(document.hidden){ if(ac.state==='running') ac.suspend(); } else if(ac.state==='suspended'){ ac.resume().then(()=>{ if(music.on && want && !(curNode&&curNode.group===want)) mStart(want); }); } });
 
 // ---------------- 見た目の土台 ----------------
 const reduce=(()=>{ try{ return matchMedia('(prefers-reduced-motion: reduce)').matches; }catch(e){ return false; } })();
@@ -2922,7 +2929,7 @@ function renderTitle(){
    +(loadOnline()?'<button id="btnOnlineResume">オンライン対戦を再開（部屋 '+esc(loadOnline().code)+'）</button>':'')
    +'<button id="btnCodex">カードリスト（図鑑）</button>'
    +'<button class="ghost" id="btnSnd">'+sndIcon()+' サウンド（音楽 '+(AN.BGM.isOn()?'オン':'オフ')+'・効果音 '+(AN.SFX.isMuted()?'オフ':'オン')+'）</button>'
-   +'</div><div class="sub" style="margin-top:28px;font-size:11px">v3.15 — CPU戦・'+AN.CARDS.length+'種プール</div></div>';
+   +'</div><div class="sub" style="margin-top:28px;font-size:11px">v3.15.1 — CPU戦・'+AN.CARDS.length+'種プール</div></div>';
   s.querySelector('#btnNew').onclick=()=>show('setup');
   s.querySelector('#btnCodex').onclick=()=>show('codex');
   s.querySelector('#btnSnd').onclick=()=>soundSheet(()=>renderTitle());

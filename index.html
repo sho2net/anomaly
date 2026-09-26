@@ -292,6 +292,27 @@ html,body{height:100%;height:100dvh}
 @keyframes fxsweep{0%{left:-30%}60%{left:110%}100%{left:110%}}
 .sndbtn{padding:4px 8px}
 @media (prefers-reduced-motion:reduce){ .fxnum,.fxbanner,.fxbanner span{animation-duration:.8s} }
+
+/* v3.16 一枚絵 */
+.screen.hasart{background:linear-gradient(180deg,rgba(23,34,44,.1) 0%,rgba(23,34,44,.2) 45%,rgba(23,34,44,.75) 80%,var(--bg) 100%),var(--art) center top/cover no-repeat,var(--bg)}
+.screen.hasart h1.logo{text-shadow:0 2px 18px rgba(0,0,0,.8)}
+.screen.hasart .menu button:not(.primary){background:rgba(30,44,56,.62);backdrop-filter:blur(4px);border:1px solid rgba(255,255,255,.08)}
+.screen.hasart .sub{text-shadow:0 1px 6px rgba(0,0,0,.9)}
+.advhead.hasbg{background:linear-gradient(90deg,rgba(23,34,44,.92) 0%,rgba(23,34,44,.72) 55%,rgba(23,34,44,.35) 100%),var(--art) center/cover no-repeat;border-bottom:2px solid var(--ac);text-shadow:0 1px 4px rgba(0,0,0,.9);padding:14px}
+.advport{position:relative;width:min(100%,270px);margin:8px auto 0;border-radius:14px;overflow:hidden;aspect-ratio:720/926;box-shadow:0 0 0 1px var(--ac),0 10px 40px rgba(0,0,0,.6),0 0 40px color-mix(in srgb,var(--ac) 30%,transparent)}
+.advport img{width:100%;height:100%;object-fit:cover;display:block}
+.advport::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,transparent 65%,rgba(23,34,44,.85))}
+.advport.final{box-shadow:0 0 0 1px #C58CFF,0 10px 40px rgba(0,0,0,.6),0 0 50px rgba(139,92,255,.45);animation:portglow 3.2s ease-in-out infinite}
+@keyframes portglow{50%{box-shadow:0 0 0 1px #FF6BD6,0 10px 40px rgba(0,0,0,.6),0 0 60px rgba(255,107,214,.4)}}
+.advport+.advfoe{margin-top:-28px;position:relative}
+.advscene.hasimg{padding:0 0 18px;overflow:hidden}
+.advscene .evimg{width:100%;aspect-ratio:1100/629;object-fit:cover;display:block;margin-bottom:12px;-webkit-mask-image:linear-gradient(180deg,#000 75%,transparent);mask-image:linear-gradient(180deg,#000 75%,transparent)}
+.advscene.hasimg .ico{display:none}
+.advscene.hasimg>div{padding:0 14px}
+.bosscard{display:flex;gap:12px;align-items:stretch}
+.bosscard .bport{flex:0 0 84px;border-radius:8px;background:var(--panel2) center 20%/cover no-repeat;min-height:108px}
+.bosscard .bbody{flex:1;min-width:0}
+.bosscard.locked .bport{filter:grayscale(1) brightness(.35)}
 </style>
 </head>
 <body>
@@ -2243,7 +2264,7 @@ function ctx(){
   try{ setup(new Ctor()); }catch(e){ ac=null; }
   return ac;
 }
-function unlock(){ const c=ctx(); if(c && c.state!=='running' && c.resume) c.resume().then(()=>{ if(window.AN&&AN.BGM) AN.BGM._kick(); }).catch(()=>{}); } // iPhone の 'interrupted' も戻す
+function unlock(){ const c=ctx(); if(c && c.state!=='running' && c.resume) c.resume().then(()=>{ if(window.AN&&AN.BGM) AN.BGM._kick(); preStart(); }).catch(()=>{}); } // iPhone の 'interrupted' も戻す
 ['pointerdown','keydown','touchstart'].forEach(t=>window.addEventListener(t, unlock, {capture:true, passive:true}));
 
 function env(p,t,o){ const a=o.a||0.004, h=o.h||0, v=o.v||0.2; p.setValueAtTime(0.0001,t); p.exponentialRampToValueAtTime(v,t+a); if(h) p.setValueAtTime(v,t+a+h); p.exponentialRampToValueAtTime(0.0001,t+a+h+o.d); return t+a+h+o.d; }
@@ -2427,11 +2448,55 @@ const S={
     harp([N(69),N(65),N(62),N(57)],{d:1.8,v:0.09,gap:0.28,bright:0.3,at:0.2});
     bell({f:N(38),d:4,v:0.16,at:0.9,rev:0.7}); },
 };
+// ---- 先に書き出しておく（v3.16）----
+// 効果音をその場で合成すると、1音で最大200個ほどの部品が一度に動き、非力なPCでは音の処理が追いつかず BGM ごと途切れる。
+// そこで、音が出せるようになったら裏で全部の効果音を一度ずつ録音（OfflineAudioContext）しておき、本番は録音を鳴らすだけにする（1音あたり部品3つ）。
+// 録音が済むまでの間だけ、これまでどおりその場で合成する。左右の位置は再生時に付ける。
+const PR_SR=32000, PR_LEN={boss:5.5,anomaly:5,win:4.5,lose:6.5,destroy:3.2,heal:2.8,spell:2.8,mirror:3,trap:3,relic:3,turn:3.8};
+const pre={}, preBusy={}; let preQ=null, preRun=false, pbus=null;
+function bucket(name,arg){ if(name==='relic'||name==='attack'||name==='destroy'||name==='armor'||name==='heal'||name==='bounce'||name==='mirror'||name==='trap'||name==='click'||name==='boss'||name==='win'||name==='lose') return null; if(name==='hit'||name==='face'){ const n=+arg||1; return n<=3?2:n<=6?5:9; } return arg; }
+function keyOf(name,arg){ return name+':'+(arg==null?'':String(arg)); }
+function variants(name){ return (name==='click'||name==='attack'||name==='hit'||name==='destroy')?2:1; }
+async function preRender(name,arg){
+  const k=keyOf(name,arg); if(pre[k]&&pre[k].length>=variants(name)) return; if(preBusy[k]) return; preBusy[k]=true;
+  try{ while((pre[k]||[]).length<variants(name)){
+    const sec=PR_LEN[name]||2.6; const keep={ac,master,revIn,WHITE,BROWN};
+    const off=new OfflineAudioContext(2, Math.floor(PR_SR*sec), PR_SR);
+    try{ setup(off); S[name](arg,0); } finally { ({ac,master,revIn,WHITE,BROWN}=keep); }
+    const buf=await off.startRendering();
+    // 後ろの無音を切る（-66dB 以下）
+    const L=buf.getChannelData(0), Rr=buf.getChannelData(1); let end=L.length-1; while(end>0 && Math.abs(L[end])<5e-4 && Math.abs(Rr[end])<5e-4) end--;
+    const n=Math.min(L.length, end+Math.floor(PR_SR*0.05)); const out=ac.createBuffer(2,n,PR_SR); out.copyToChannel(L.subarray(0,n),0); out.copyToChannel(Rr.subarray(0,n),1);
+    (pre[k]=pre[k]||[]).push(out);
+  } }catch(e){ (window.__sfxerr=window.__sfxerr||[]).push('pre '+k+': '+e.message); }
+  finally{ delete preBusy[k]; }
+}
+function preList(){ const A=['flare','tide','grow','ray','void','none','anom'], L=[['click'],['turn',true],['turn',false],['attack'],['hit',2],['hit',5],['hit',9],['destroy']];
+  A.forEach(a=>L.push(['play',a])); A.forEach(a=>L.push(['spell',a]));
+  L.push(['face',2],['face',5],['face',9],['armor'],['bounce'],['heal'],['relic'],['trap'],['mirror'],['anomaly',false],['anomaly',true],['boss'],['win'],['lose']);
+  return L.filter(([n])=>S[n]); }
+function preStart(){ // 1つずつ、合間を空けて書き出す（裏の処理でゲームが重くならないように）
+  if(preRun || typeof OfflineAudioContext==='undefined' || !ac || ac.state!=='running') return; preRun=true; preQ=preQ||preList();
+  const step=()=>{ const x=preQ.shift(); if(!x){ preRun=false; return; } preRender(x[0],x[1]).then(()=>setTimeout(step,120)); };
+  setTimeout(step,400);
+}
+function pBus(){ if(!pbus){ // 録音どうしが重なっても割れないよう、軽いリミッターを1つだけ通す
+  pbus=ac.createDynamicsCompressor(); pbus.threshold.value=-6; pbus.knee.value=6; pbus.ratio.value=8; pbus.attack.value=0.002; pbus.release.value=0.2; pbus.connect(ac.destination); } return pbus; }
+function playPre(k,pan){
+  const list=pre[k]; if(!list||!list.length) return false;
+  const s=ac.createBufferSource(); s.buffer=list[Math.floor(Math.random()*list.length)];
+  let n=s; if(pan && ac.createStereoPanner){ const p=ac.createStereoPanner(); p.pan.value=Math.max(-1,Math.min(1,pan)); s.connect(p); n=p; }
+  n.connect(pBus()); s.start(); return true;
+}
 function play(name, arg, pan){
   if(window.__sfxlog) window.__sfxlog.push(name); // テスト用
   if(muted) return; const c=ctx(); if(!c || c.state!=='running') return;
   const now=performance.now(); if(lastAt[name] && now-lastAt[name]<45) return; lastAt[name]=now;
+  if(!S[name]) return;
+  const a=bucket(name,arg), k=keyOf(name,a);
+  if(!window.__sfxlive && playPre(k,pan||0)) return;
   try{ S[name](arg, pan||0); }catch(e){ (window.__sfxerr=window.__sfxerr||[]).push(name+': '+e.message); }
+  if(!window.__sfxlive){ preRender(name,a); preStart(); } // まだ録音がなければ、今回だけ合成して録音も作る
 }
 function later(ms, name, arg, pan){ if(ms<=0) play(name,arg,pan); else setTimeout(()=>play(name,arg,pan), ms); }
 async function renderOffline(name, arg, sec){
@@ -2443,7 +2508,7 @@ async function renderOffline(name, arg, sec){
   for(let i=0;i<d.length;i+=win){ let s2=0; for(let j=i;j<Math.min(d.length,i+win);j++){ s2+=d[j]*d[j]; peak=Math.max(peak,Math.abs(d[j])); } rms.push(+Math.sqrt(s2/win).toFixed(4)); }
   return {err, peak:+peak.toFixed(3), rms};
 }
-AN.SFX={ renderOffline, play, later, names:Object.keys(S), state:()=>ac?ac.state:'none', isMuted:()=>muted, setMuted(v){ muted=!!v; try{ localStorage.setItem(LS, muted?'off':'on'); }catch(e){} if(!muted){ unlock(); setTimeout(()=>play('click'),30); } } };
+AN.SFX={ renderOffline, play, preStart, preReady:()=>Object.keys(pre).length, _peaks:()=>Object.entries(pre).map(([k,l])=>k+'='+l.map(b=>{let m=0;const d=b.getChannelData(0);for(let i=0;i<d.length;i++)m=Math.max(m,Math.abs(d[i]));return m.toFixed(2)+'/'+b.duration.toFixed(1)+'s';}).join(',')).join(' '), preBytes:()=>Object.values(pre).flat().reduce((s,b)=>s+b.length*8,0), preTotal:()=>preList().length, later, names:Object.keys(S), state:()=>ac?ac.state:'none', isMuted:()=>muted, setMuted(v){ muted=!!v; try{ localStorage.setItem(LS, muted?'off':'on'); }catch(e){} if(!muted){ unlock(); setTimeout(()=>play('click'),30); } } };
 document.addEventListener('click', e=>{ const b=e.target.closest && e.target.closest('button'); if(b && !b.disabled) play('click'); }, true);
 
 // ---------------- BGM（v3.15〜：Sunoで作った曲をループ再生）----------------
@@ -2769,6 +2834,7 @@ const app=document.getElementById('app');
 const LS='anomaly_series_v2';
 let series=null, game=null, cpuTimer=null, evSeen=0;
 const ui={screen:'title', attackFrom:null, filter:'all', cfilter:'all', sheet:null, lastLog:'', me:0};
+const ART=k=>'art/'+k+'.webp'; // v3.16 一枚絵（WebP。無ければ表示されないだけ）
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
 // ---------- serialization ----------
@@ -2916,9 +2982,9 @@ function div(cls, html){ const d=document.createElement('div'); d.className=cls|
 
 // ----- title -----
 function renderTitle(){
-  const s=screenEl('title');
+  const s=screenEl('title'); s.classList.add('hasart'); s.style.setProperty('--art','url('+ART('title')+')');
   const saved=load();
-  s.innerHTML='<div class="wrap" style="padding-top:18vh">'
+  s.innerHTML='<div class="scroll"><div class="wrap" style="padding-top:14vh">'
    +'<h1 class="logo">ANOMALY</h1><div class="sub" style="margin-top:8px">配られた90枚から30枚。うち3枚は、誰も知らないカード。</div>'
    +'<div class="menu">'
    +(saved?'<button class="primary" id="btnResume">続きから（第'+saved.gameNo+'ゲーム・'+saved.wins[0]+'–'+saved.wins[1]+'）</button>':'')
@@ -2929,7 +2995,7 @@ function renderTitle(){
    +(loadOnline()?'<button id="btnOnlineResume">オンライン対戦を再開（部屋 '+esc(loadOnline().code)+'）</button>':'')
    +'<button id="btnCodex">カードリスト（図鑑）</button>'
    +'<button class="ghost" id="btnSnd">'+sndIcon()+' サウンド（音楽 '+(AN.BGM.isOn()?'オン':'オフ')+'・効果音 '+(AN.SFX.isMuted()?'オフ':'オン')+'）</button>'
-   +'</div><div class="sub" style="margin-top:28px;font-size:11px">v3.15.1 — CPU戦・'+AN.CARDS.length+'種プール</div></div>';
+   +'</div><div class="sub" style="margin-top:28px;font-size:11px">v3.16 — CPU戦・'+AN.CARDS.length+'種プール</div></div></div>';
   s.querySelector('#btnNew').onclick=()=>show('setup');
   s.querySelector('#btnCodex').onclick=()=>show('codex');
   s.querySelector('#btnSnd').onclick=()=>soundSheet(()=>renderTitle());
@@ -3196,7 +3262,7 @@ function renderBoss(){
   const s=screenEl('boss'); const prog=bossProgress();
   s.innerHTML='<div class="topbar"><button class="ghost" id="back">←</button><div class="t">ボスに挑戦</div></div><div class="scroll wrap">'
    +'<div class="sub" style="line-height:1.7;margin-bottom:12px">いつもどおり90枚を受け取ってデッキを組み、強化されたボスと1本勝負。倒すと次のボスが解放されます。ボスは全カードから選んだ強いデッキを使います。</div>'
-   +AN.BOSSES.map((b,i)=>{ const open=i<=prog; const cleared=i<prog; return '<div class="bosscard'+(open?'':' locked')+'" style="--ac:'+(b.attr?AN.ATTRS[b.attr].c:'#C58CFF')+'"><div class="bn">'+(i+1)+'. '+esc(b.name)+(cleared?' <span class="clr">撃破済</span>':'')+'</div><div class="sub">'+(open?esc(b.desc):'前のボスを倒すと解放')+'</div>'+(open?'<button class="primary" data-b="'+b.key+'">挑戦する</button>':'')+'</div>'; }).join('')
+   +AN.BOSSES.map((b,i)=>{ const open=i<=prog; const cleared=i<prog; return '<div class="bosscard'+(open?'':' locked')+'" style="--ac:'+(b.attr?AN.ATTRS[b.attr].c:'#C58CFF')+'">'+'<div class="bport" style="background-image:url('+ART('chal_'+(i+1))+')"></div>'+'<div class="bbody"><div class="bn">'+(i+1)+'. '+esc(b.name)+(cleared?' <span class="clr">撃破済</span>':'')+'</div><div class="sub">'+(open?esc(b.desc):'前のボスを倒すと解放')+'</div>'+(open?'<button class="primary" data-b="'+b.key+'">挑戦する</button>':'')+'</div></div>'; }).join('')
    +'</div>';
   s.querySelector('#back').onclick=()=>show('title');
   s.querySelectorAll('button[data-b]').forEach(bt=>bt.onclick=()=>{ setup.boss=bt.dataset.b; setup.seed=''; newSeries(); setup.boss=null; });
@@ -3435,6 +3501,7 @@ const ADV_AREA={
   ray:  { treasure:'X04', name:'天空の聖都', icon:'cathedral', enemies:['聖堂の衛士','巡礼の僧','光の射手','天使の見習い'], elite:'聖騎士団長', boss:'天光の主セラフ', bossLeader:'boss_ray' },
   void: { treasure:'X05', name:'冥府の墓所', icon:'tomb', enemies:['墓守','屍術師','影の刺客','骨の兵'], elite:'死の騎士', boss:'冥王ハーデン', bossLeader:'boss_void' },
 };
+const ADV_EV_ART={altar:'ev_altar',chest:'ev_chest',spring:'ev_spring',mirror:'ev_mirror',blade:'ev_armory',bandits:'ev_bandits',merchant:'ev_merchant'}; // 禁書庫・さすらいの強者は絵なし（生成画像に不具合があったため）
 const ADV_PRICE={C:25,U:45,R:90,L:160,A:140};
 let advRun=null;
 function advSer(list){ return list.map(d=>d.anomaly? d : d.id); }
@@ -3525,7 +3592,7 @@ function renderAdvStart(){
 }
 function advHeader(){
   const a=advArea(); const A=a?ADV_AREA[a]:null;
-  return '<div class="advhead" style="--ac:'+(a?AN.ATTRS[a].c:'#C58CFF')+'"><div class="an">'+(A?esc(A.name)+' ・ '+(advRun.floor<5?(advRun.floor+1)+'階':'主の間'):'歪みの果て')+'</div><div class="st">♥'+'♥'.repeat(Math.max(0,advRun.hearts-1))+'<span class="lost">'+'♡'.repeat(advRun.maxHearts-advRun.hearts)+'</span>　'+advRun.gold+'G　所持'+advRun.col.length+'枚</div>'
+  return '<div class="advhead'+(a?' hasbg':'')+'" style="--ac:'+(a?AN.ATTRS[a].c:'#C58CFF')+(a?';--art:url('+ART('region_'+a)+')':'')+'"><div class="an">'+(A?esc(A.name)+' ・ '+(advRun.floor<5?(advRun.floor+1)+'階':'主の間'):'歪みの果て')+'</div><div class="st">♥'+'♥'.repeat(Math.max(0,advRun.hearts-1))+'<span class="lost">'+'♡'.repeat(advRun.maxHearts-advRun.hearts)+'</span>　'+advRun.gold+'G　所持'+advRun.col.length+'枚</div>'
    +(advLoop()?'<div class="buff" style="color:#FF8A7A">ハード '+advLoop()+'周目</div>':'')
    +(advSeals()?'<div class="buff" style="color:#C58CFF">歪みの封印：'+advSeals()+(advLoop()?'（ハードでの効き目 '+advSealEff()+'）':'')+'</div>':'')
    +(a&&advRun.areaIdx>0?'<div class="buff">強敵との戦いでは、'+AN.ATTRS[a].n+'属性のクリーチャーが+1/+1</div>':(a?'<div class="buff">最初の地域では、まだ地域の力は働かない</div>':''))+'</div>';
@@ -3641,7 +3708,9 @@ function renderAdvAnte(){
   const P=advRun.pending; if(!P){ show('advMap'); return; }
   const s=screenEl('advAnte');
   const a=P.en.attr; const buff = a && P.kind==='elite' && advRun.areaIdx>0;
+  const pk = P.en.hardFinal?'boss_judge':(P.en.final?'boss_devourer':(P.kind==='boss'&&a?'lord_'+a:null));
   s.innerHTML=advHeader()+'<div class="scroll wrap" style="text-align:center">'
+   +(pk?'<div class="advport'+(P.en.final?' final':'')+'" style="--ac:'+(a?AN.ATTRS[a].c:'#C58CFF')+'"><img src="'+ART(pk)+'" alt="" onerror="this.parentNode.remove()"></div>':'')
    +'<div class="advfoe" style="--ac:'+(a?AN.ATTRS[a].c:'#C58CFF')+'"><span class="ico">'+AN.iconSvg({i:P.en.icon?P.en.icon:P.kind==='boss'?'crown':(P.en.strong?'knight':(P.kind==='elite'?'helm':(P.en.final?'darkcrown':'soldier')))})+'</span><div><div class="fn">'+esc(P.en.name)+'</div><div class="sub">'
    +(P.en.secret?'最終決戦 ・ '+(advLoop()?'ハード'+advLoop()+'周目の力 ・ ':'')+(advSeals()?'封印'+advSeals()+'により、その力は削がれている':'その力は計り知れない'):(({battle:'',elite:'強敵 ・ ',boss:'地域の主 ・ ',final:'最終決戦 ・ '}[P.kind])+(P.en.strong?'さすらいの強者 ・ ':'')+'ライフ'+P.en.life+(P.en.leader?' ・ 能力「'+esc(AN.LEADER_EX[P.en.leader].name)+'」':'')))+'</div></div></div>'
    +(buff?'<div class="sub" style="margin-bottom:8px;color:#FFD86B">この戦いでは'+AN.ATTRS[a].n+'属性のクリーチャーが敵味方とも+1/+1</div>':'')
@@ -3773,7 +3842,7 @@ function renderAdvEvent(){
   const E=ADV_EVENTS.find(x=>x.key===ev.key); if(!E){ advNext(); return; }
   const s=screenEl('advEvent');
   const offer=ev.offer?{d:AN.CARD_BY_ID[ev.offer.d], price:ev.offer.price}:null;
-  s.innerHTML=advHeader()+'<div class="scroll wrap" style="text-align:center"><div class="advscene big"><span class="ico">'+AN.iconSvg({i:E.icon})+'</span><div class="et">'+esc(E.title)+'</div><div>'+esc(E.text)+'</div></div>'
+  s.innerHTML=advHeader()+'<div class="scroll wrap" style="text-align:center"><div class="advscene big'+(ADV_EV_ART[E.key]?' hasimg':'')+'">'+(ADV_EV_ART[E.key]?'<img class="evimg" src="'+ART(ADV_EV_ART[E.key])+'" alt="" onerror="this.parentNode.classList.remove(\'hasimg\');this.remove()">':'')+'<span class="ico">'+AN.iconSvg({i:E.icon})+'</span><div class="et">'+esc(E.title)+'</div><div>'+esc(E.text)+'</div></div>'
    +(ev.done?'<div class="evmsg">'+esc(ev.done.msg)+'</div><div class="picks" id="evcard"></div><div class="menu"><button class="primary" id="go">'+(ev.done.fight?'戦う':'先へ進む')+'</button></div>':
      (offer?'<div class="picks" id="offer"></div><div class="sub">'+offer.price+'G</div>':'')+(E.pick3?'<div class="sub" style="margin:6px 0">1枚を選ぶと番人（強敵）との戦闘になります。負けてもカードは手元に残ります。</div><div class="picks" id="pk3"></div><div class="menu"><button class="ghost" id="skip">何も持たずに去る</button></div>':'<div class="menu" id="ch"></div>'))+'</div>';
   if(ev.done){

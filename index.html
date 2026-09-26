@@ -3002,9 +3002,9 @@ function battleBg(){
     else if(series && series.boss){ const b=AN.BOSSES.find(x=>x.key===series.boss); if(b && !b.attr) L.push('bg_anomaly'); else a=b&&b.attr; }
     else if(game){ a=game.players[1-ui.me].main||game.players[ui.me].main; }
   }catch(e){}
-  if(a){ L.push('bg_'+a); L.push('region_'+a); }
-  L.push('bg_battle');
-  return 'radial-gradient(130% 90% at 50% 45%,rgba(23,34,44,.6) 0%,rgba(23,34,44,.8) 60%,rgba(23,34,44,.94) 100%),'+L.map(k=>'url('+ART(k)+')').join(',');
+  if(a && !L.length) L.push('bg_'+a);
+  if(!L.length) L.push('bg_battle');
+  return 'radial-gradient(130% 90% at 50% 45%,rgba(23,34,44,.5) 0%,rgba(23,34,44,.72) 60%,rgba(23,34,44,.9) 100%),'+L.map(k=>'url('+ART(k)+')').join(',');
 }
 function screenEl(id){ try{ AN.BGM.play(bgmKeyFor(id)); }catch(e){}
   try{ const bg=id==='battle'?battleBg():''; if(app.dataset.bg!==bg){ app.dataset.bg=bg; app.style.backgroundImage=bg; } }catch(e){} closeSheet(); app.innerHTML=''; const s=document.createElement('div'); s.className='screen on'; s.id=id; app.appendChild(s); return s; }
@@ -3025,7 +3025,7 @@ function renderTitle(){
    +(loadOnline()?'<button id="btnOnlineResume">オンライン対戦を再開（部屋 '+esc(loadOnline().code)+'）</button>':'')
    +'<button id="btnCodex">カードリスト（図鑑）</button>'
    +'<button class="ghost" id="btnSnd">'+sndIcon()+' サウンド（音楽 '+(AN.BGM.isOn()?'オン':'オフ')+'・効果音 '+(AN.SFX.isMuted()?'オフ':'オン')+'）</button>'
-   +'</div><div class="sub" style="margin-top:28px;font-size:11px">v3.17 — CPU戦・'+AN.CARDS.length+'種プール</div></div></div>';
+   +'</div><div class="sub" style="margin-top:28px;font-size:11px">v3.17.1 — CPU戦・'+AN.CARDS.length+'種プール</div></div></div>';
   s.querySelector('#btnNew').onclick=()=>show('setup');
   s.querySelector('#btnCodex').onclick=()=>show('codex');
   s.querySelector('#btnSnd').onclick=()=>soundSheet(()=>renderTitle());

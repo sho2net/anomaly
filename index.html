@@ -325,6 +325,18 @@ html,body{height:100%;height:100dvh}
 .bigcard .cart{height:62%;object-position:center 35%;-webkit-mask-image:linear-gradient(180deg,#000 70%,transparent);mask-image:linear-gradient(180deg,#000 70%,transparent)}
 .bigcard .cshade{background:linear-gradient(180deg,rgba(10,14,20,.8) 0%,rgba(10,14,20,.2) 26%,rgba(10,14,20,0) 40%)}
 .bigcard.hasart .text{background:rgba(12,18,24,.82)}
+
+/* v3.19 チュートリアル */
+.tutbox{position:absolute;left:10px;right:10px;top:8px;z-index:22;background:linear-gradient(180deg,rgba(40,58,74,.97),rgba(30,44,56,.97));border:1px solid #ffd86b;border-radius:12px;padding:10px 12px 10px;box-shadow:0 8px 28px rgba(0,0,0,.55);font-size:13px;line-height:1.6}
+.tutbox .tt{font-size:11px;color:#ffd86b;font-weight:700;letter-spacing:.06em;margin-bottom:2px}
+.tutbox .tx b{color:#ffe9a3}
+.tutbox #tutok{margin-top:8px;padding:6px 16px;font-size:13px}
+.tutbox .tn{margin-top:6px;font-size:12px;color:#7be0b0}
+.tutbox .tutx{position:absolute;right:8px;top:6px;padding:2px 8px;font-size:10px;border-color:transparent;color:var(--muted)}
+.tut-hl{animation:tuthl 1.1s ease-in-out infinite;z-index:21}
+.card.tut-hl{box-shadow:0 0 0 3px #ffd86b,0 0 18px 4px rgba(255,216,107,.7)!important}
+.life.tut-hl,button.tut-hl{box-shadow:0 0 0 3px #ffd86b,0 0 16px 3px rgba(255,216,107,.7)!important}
+@keyframes tuthl{50%{filter:brightness(1.35)}}
 </style>
 </head>
 <body>
@@ -1262,7 +1274,7 @@ class Game {
     this.choosers = opts.choosers || [null,null];
     this.players = [0,1].map(i=>({
       i, name:this.names[i], life:LIFE, hand:[], energy:0, energyMax:0, field:[], grave:[], abilityUsed:false, relics:[], traps:[], main:(opts.mains||[])[i]||null, plays:0, spellsCast:0, pray:0, souls:0, bonusNext:0,
-      deck: this.rng.shuffle(opts.decks[i].map(d=>this.inst(d))),
+      deck: opts.fixedOrder ? opts.decks[i].map(d=>this.inst(d)).reverse() : this.rng.shuffle(opts.decks[i].map(d=>this.inst(d))), // fixedOrder：チュートリアル用（先頭から順に引く）
     }));
     this.turn = 0; this.active = opts.first==null ? this.rng.int(2) : opts.first;
     this.first = this.active;
@@ -2997,7 +3009,7 @@ function show(name){ ui.screen=name; render(); }
 function render(){
   closeSheet();
   app.innerHTML='';
-  const fn={advStart:renderAdvStart, advMap:renderAdvMap, advAnte:renderAdvAnte, advReward:renderAdvReward, advShop:renderAdvShop, advInn:renderAdvInn, advEvent:renderAdvEvent, advDeck:renderAdvDeck, boss:renderBoss, title:renderTitle, setup:renderSetup, draft:renderDraft, battle:renderBattle, codex:renderCodex, result:renderResult, lobby:renderLobby, wait:renderWait}[ui.screen];
+  const fn={advStart:renderAdvStart, advMap:renderAdvMap, advAnte:renderAdvAnte, advReward:renderAdvReward, advShop:renderAdvShop, advInn:renderAdvInn, advEvent:renderAdvEvent, advDeck:renderAdvDeck, tutEnd:renderTutEnd, boss:renderBoss, title:renderTitle, setup:renderSetup, draft:renderDraft, battle:renderBattle, codex:renderCodex, result:renderResult, lobby:renderLobby, wait:renderWait}[ui.screen];
   fn();
 }
 // v3.16.1 戦闘の背景：専用の絵（bg_*）→ 無ければ地域の絵 → 無ければ標準の闘技場。下の層は上の絵が無いときだけ見える
@@ -3026,19 +3038,21 @@ function renderTitle(){
    +'<div class="menu">'
    +(saved?'<button class="primary" id="btnResume">続きから（第'+saved.gameNo+'ゲーム・'+saved.wins[0]+'–'+saved.wins[1]+'）</button>':'')
    +'<button class="'+(saved?'':'primary')+'" id="btnNew">新しい対戦を始める</button>'
+   +'<button id="btnTut"'+(tutDone()?' class="ghost"':'')+'>チュートリアル（遊び方を覚える）'+(tutDone()?' <small style="color:#7be0b0">✓</small>':'')+'</button>'
    +'<button id="btnAdv">冒険モード（1人用）</button>'
    +'<button id="btnBoss">ボスに挑戦</button>'
    +'<button id="btnOnline">オンライン対戦（部屋コード）</button>'
    +(loadOnline()?'<button id="btnOnlineResume">オンライン対戦を再開（部屋 '+esc(loadOnline().code)+'）</button>':'')
    +'<button id="btnCodex">カードリスト（図鑑）</button>'
    +'<button class="ghost" id="btnSnd">'+sndIcon()+' サウンド（音楽 '+(AN.BGM.isOn()?'オン':'オフ')+'・効果音 '+(AN.SFX.isMuted()?'オフ':'オン')+'）</button>'
-   +'</div><div class="sub" style="margin-top:28px;font-size:11px">v3.18.2 — CPU戦・'+AN.CARDS.length+'種プール</div></div></div>';
+   +'</div><div class="sub" style="margin-top:28px;font-size:11px">v3.19 — CPU戦・'+AN.CARDS.length+'種プール</div></div></div>';
   s.querySelector('#btnNew').onclick=()=>show('setup');
   s.querySelector('#btnCodex').onclick=()=>show('codex');
   s.querySelector('#btnSnd').onclick=()=>soundSheet(()=>renderTitle());
   s.querySelector('#btnOnline').onclick=()=>show('lobby');
   s.querySelector('#btnBoss').onclick=()=>show('boss');
   s.querySelector('#btnAdv').onclick=()=>show('advStart');
+  s.querySelector('#btnTut').onclick=()=>tutStart();
   const ro=s.querySelector('#btnOnlineResume'); if(ro) ro.onclick=()=>onlineResume();
   if(saved) s.querySelector('#btnResume').onclick=()=>{ series=saved; if(series.decks[0]&&series.decks[0].length===AN.CONST.DECK_SIZE) startGame(); else show('draft'); };
 }
@@ -3285,6 +3299,7 @@ function renderBattle(){
   const evs=game.events.slice(evSeen); evSeen=game.events.length;
   evs.forEach(e=>{ if(e.type==='play' && e.d && e.d.anomaly) queueReveal(e.d, game.players[e.p].name); if(e.type==='trap') queueReveal(Object.assign({isTrap:true},e.d), game.players[e.p].name); if(e.type==='bossphase') queueReveal({phase:true, name:game.players[e.p].name}, game.players[e.p].name); });
   AN.FX.run(prevSnap, s, evs, game, ME);
+  if(series && series.tut) tutAfterRender(s);
   if(game.winner!=null && !game._endSnd){ game._endSnd=true; AN.SFX.later(350, game.winner===ME?'win':'lose'); }
   // pending for human
   if(game.phase==='mulligan'){ renderMulligan(); return; }
@@ -3368,6 +3383,7 @@ function showLog(){
 function finishGame(){
   if(!game||game.winner==null||ui.screen!=='battle') return;
   revealQ.length=0; document.querySelectorAll('.reveal').forEach(e=>e.remove()); revealing=false;
+  if(series && series.tut){ tutFinish(game.winner); return; }
   if(series && series.adv){ advFinish(game.winner); return; }
   const w=game.winner; series.lastWinner=w; series.lastTurns=game.turn; series.nextFirst=1-w; // 敗者が先攻
   if(series.online){ series.gameNo=series.playingNo; ui.screen='result'; onlineGameOver(w); }
@@ -3917,6 +3933,99 @@ function renderAdvDeck(){
 }
 
 window.__adv={ run:()=>advRun, show:(n)=>show(n), save:()=>advSave() };
+
+// ================= チュートリアル（v3.19）=================
+// タイトルから選んで遊ぶ練習試合。山札の順番を固定し、弱いCPU（ライフ15）と対戦しながら、
+// その場の状況に合わせて「次にやること」を上の吹き出しで案内する。案内は状況が合ったときに1回ずつ出る。
+const TUT_LS='anomaly_tut_v1';
+function tutDone(){ try{ return localStorage.getItem(TUT_LS)==='done'; }catch(e){ return false; } }
+function tutSetDone(){ try{ localStorage.setItem(TUT_LS,'done'); }catch(e){} }
+const TUT_ME=['F01','N03','F08','F06', 'N01','F12','@anom','F16','N04','F05','F22','N03','F10','F12','F27','F06','N04','F16','F07','N01','F14','F22','N03','F05','F12','N04','F16','F10','F06','F22'];
+const TUT_OP=['T01','T34','N01','T12','N03', 'T35','N01','N04','T01','T12','N03','T34','N04','T01','N01','T12','N03','T35','N04','T01','N01','N03','T12','N04','T01','T34','N03','N01','T12','N04'];
+function tutStart(){
+  const rng=AN.makeRng('anomaly-tutorial');
+  const anom=AN.makeAnomaly(rng, 0, 'flare');
+  const defs=list=>list.map(id=>id==='@anom'?anom:AN.CARD_BY_ID[id]);
+  series={ tut:{done:{}, atk0:0}, adv:false, online:null, boss:null, level:1, wins:[0,0], gameNo:1, format:1, mains:['flare','tide'], pools:[[],[]], decks:[[],[]] };
+  ui.me=0;
+  game=new AN.Game({ seed:'tutorial', decks:[defs(TUT_ME), defs(TUT_OP)], fixedOrder:true, first:0, noMulligan:true, names:['あなた','練習相手'], mains:['flare','tide'],
+    choosers:[null, AN.AI.chooser(1)], lifes:[0,15] });
+  game.uiPause=true; ui.attackFrom=null; evSeen=0; ui.mullSel=new Set();
+  show('battle'); scheduleCpu();
+}
+// 案内の一覧。when＝出す条件、until＝やり終えた判定（無ければ「わかった」で閉じる）、hl＝光らせる場所
+function tutTips(g){
+  const me=g.players[0], op=g.players[1], myTurn=g.active===0 && !g.pending && g.winner==null;
+  const playable=me.hand.filter(c=>g.canPlay(me,c));
+  const playCr=playable.find(c=>c.d.type==='creature');
+  const attackers=me.field.filter(c=>g.canAttackWith(me,c));
+  const atkCount=g.events.filter(e=>e.type==='attack'&&e.p===0).length;
+  const oppGuard=op.field.find(c=>g.hasKw(c,'blocker')&&!c.tapped&&!c.stun);
+  const fire=me.hand.find(c=>c.d.id==='F08');
+  const anom=me.hand.find(c=>c.d.anomaly);
+  return [
+    { id:'goal', when:myTurn, text:'ようこそ！　これは練習試合です。<b>相手のライフ（画面の上の数字）を0にすれば勝ち</b>。あなたのライフは下の数字です。' },
+    { id:'energy', when:myTurn, text:'カードを出すには<b>エナジー</b>が要ります。エナジーは毎ターン最大値が1増え、全回復します（下の●）。カードの<b>左上の数字がコスト</b>です。' },
+    { id:'play', when:myTurn && me.field.length===0 && !!playCr, until:me.field.length>0, hl:playCr?['hand',playCr.uid]:null,
+      text:'手札の「'+(playCr?esc(playCr.d.name):'')+'」をタップして、<b>「プレイ」</b>を押しましょう。' },
+    { id:'haste', when:myTurn && attackers.length>0 && atkCount===0, until:atkCount>0, hl:ui.attackFrom?['life',1]:(attackers[0]?['field',attackers[0].c.uid]:null),
+      text: ui.attackFrom ? '次に、攻撃する相手として<b>相手のライフ（上の数字）</b>をタップしましょう。' : '「火花の小鬼」は<b>速攻</b>を持つので、出したターンに攻撃できます。<b>光っているカードをタップ</b>しましょう。' },
+    { id:'oppturn', when:g.active===1 && g.winner==null, until:g.active===0, auto:true, text:'相手のターンです。相手のクリーチャーに攻撃されると、あなたのライフが減ります。' },
+    { id:'sick', when:myTurn && me.field.some(c=>c.sick&&!g.hasKw(c,'haste')), text:'出したばかりのクリーチャー（灰色）は、<b>次の自分のターンから</b>攻撃できます。速攻を持つものだけは例外です。' },
+    { id:'combat', when:myTurn && attackers.length>0 && op.field.length>0, text:'クリーチャーは相手のクリーチャーも攻撃できます。<b>お互いに攻撃力（左下）ぶんのダメージ</b>を与え、体力（右下）が0になると破壊されます。受けたダメージは残ります。' },
+    { id:'guard', when:myTurn && !!oppGuard, hl:oppGuard?['field',oppGuard.c.uid]:null, text:'相手の「'+(oppGuard?esc(oppGuard.c.d.name):'')+'」は<b>守護</b>を持っています。守護が立っている間は、<b>守護以外を攻撃できません</b>。先に倒しましょう。' },
+    { id:'spell', when:myTurn && !!fire && g.canPlay(me,fire), hl:fire?['hand',fire.uid]:null, text:'「火の玉」は<b>スペル</b>（使うとなくなるカード）です。炎の<b>連撃</b>：同じターンに先にほかのカードを出していると強くなります（このターンに出した枚数だけダメージ+1）。' },
+    { id:'ability', when:myTurn && g.canUseAbility(me) && playable.length===0 && me.energy>=2, until:me.abilityUsed, hl:['btn','ability'],
+      text:'エナジーが余りました。右下の<b>「火花」はリーダー能力</b>で、毎ターン1回、相手のライフを1減らせます。押してみましょう。' },
+    { id:'end', when:myTurn && playable.length===0 && attackers.length===0 && !g.canUseAbility(me), until:g.active!==0, hl:['btn','endTurn'],
+      text:'できることがなくなりました。<b>「ターン終了」</b>を押しましょう。' },
+    { id:'anomaly', when:!!anom, hl:anom?['hand',anom.uid]:null, text:'紫の縁のカードは<b>アノマリー</b>。試合ごとに生まれる、<b>誰も知らない効果のカード</b>です（1試合に3枚まで）。タップすると効果を確認できます。' },
+    { id:'detail', when:myTurn && g.turn>=7, text:'カードをタップすると詳しい説明、<b>？ボタン</b>で用語集、画面中央の文字をタップするとこれまでの経過が見られます。あとは自由に戦ってみましょう！' },
+  ];
+}
+function tutAfterRender(s){
+  if(!series || !series.tut || !game) return;
+  const T=series.tut; const tips=tutTips(game);
+  tips.forEach(t=>{ if(!T.done[t.id] && t.until===true && T.shown===t.id) T.done[t.id]=true; }); // やり終えた案内は閉じる
+  const cur=tips.find(t=>!T.done[t.id] && t.when);
+  document.querySelectorAll('.tut-hl').forEach(e=>e.classList.remove('tut-hl'));
+  if(!cur){ T.shown=null; return; }
+  T.shown=cur.id;
+  const box=document.createElement('div'); box.className='tutbox';
+  box.innerHTML='<div class="tt">チュートリアル</div><div class="tx">'+cur.text+'</div>'
+    +(cur.until===undefined?'<button class="primary" id="tutok">わかった</button>':(cur.auto?'':'<div class="tn">やってみましょう</div>'))
+    +'<button class="ghost tutx" id="tutskip" title="案内を消す">案内を消す</button>';
+  s.appendChild(box);
+  { const pb=s.querySelector('.pbar'); if(pb){ const ar=app.getBoundingClientRect(); box.style.top=Math.round(pb.getBoundingClientRect().bottom-ar.top+4)+'px'; } } // 相手のライフは隠さない
+  const ok=box.querySelector('#tutok'); if(ok) ok.onclick=(e)=>{ e.stopPropagation(); T.done[cur.id]=true; renderBattle(); };
+  box.querySelector('#tutskip').onclick=(e)=>{ e.stopPropagation(); askConfirm('案内を消して、ふつうに対戦を続けますか？','消して続ける',()=>{ tutTips(game).forEach(t=>T.done[t.id]=true); renderBattle(); }); };
+  const h=cur.hl; if(!h) return;
+  let el=null;
+  if(h[0]==='hand'||h[0]==='field') el=s.querySelector('.card[data-uid="'+h[1]+'"]');
+  else if(h[0]==='life') el=s.querySelector('#life'+h[1]);
+  else if(h[0]==='btn') el=s.querySelector('#'+h[1]);
+  if(!el) return;
+  el.classList.add('tut-hl');
+  // 光らせた場所に吹き出しが重なるときは、その下に移す（相手のライフ・相手の場は画面の上にあるため）
+  const ar=app.getBoundingClientRect(), er=el.getBoundingClientRect(), br=box.getBoundingClientRect();
+  if(er.top < br.bottom+6 && er.bottom > br.top-6){ box.style.top=Math.round(er.bottom-ar.top+10)+'px'; }
+}
+function tutFinish(w){
+  if(w===0) tutSetDone();
+  series.tut.won=(w===0); show('tutEnd');
+}
+function renderTutEnd(){
+  const s=screenEl('result'); const won=series&&series.tut&&series.tut.won;
+  s.innerHTML='<div class="result"><div class="big" style="color:'+(won?'#7be0b0':'#f28f8f')+'">'+(won?'WIN':'LOSE')+'</div>'
+   +'<div class="big" style="font-size:20px">'+(won?'チュートリアル完了！':'おしい！')+'</div>'
+   +'<div class="sub" style="line-height:1.8;max-width:320px;text-align:left;margin:10px auto">'+(won?'基本の流れはこれでばっちりです。':'練習なので何度でもやり直せます。')
+   +'<br>次のおすすめ：<br>・<b>冒険モード</b>…決まった属性で始めて、少しずつカードを集める1人用の旅。まずはこちらがおすすめ<br>・<b>新しい対戦</b>…配られた90枚から30枚を選んで組む本来の遊び方</div>'
+   +'<div class="menu" style="width:100%;max-width:320px">'+(won?'':'<button class="primary" id="retry">もう一度</button>')
+   +'<button class="'+(won?'primary':'')+'" id="adv">冒険モードへ</button><button id="home">タイトルへ</button></div></div>';
+  const r=s.querySelector('#retry'); if(r) r.onclick=()=>tutStart();
+  s.querySelector('#adv').onclick=()=>{ series=null; game=null; show('advStart'); };
+  s.querySelector('#home').onclick=()=>{ series=null; game=null; show('title'); };
+}
 
 window.__act=(a)=>doAct(a);
 window.__g=()=>game; window.__rb=()=>renderBattle();

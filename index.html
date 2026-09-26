@@ -4,6 +4,15 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <title>ANOMALY</title>
+<meta name="description" content="配られた90枚から30枚。うち3枚は、誰も知らないカード。ブラウザで遊べる無料のカードゲーム（CPU対戦・冒険モード・オンライン対戦）。">
+<meta property="og:type" content="website">
+<meta property="og:title" content="ANOMALY">
+<meta property="og:description" content="配られた90枚から30枚。うち3枚は、誰も知らないカード。ブラウザで遊べる無料のカードゲーム。">
+<meta property="og:url" content="https://sho2net.github.io/anomaly/">
+<meta property="og:image" content="https://sho2net.github.io/anomaly/art/ogp.jpg">
+<meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://sho2net.github.io/anomaly/art/ogp.jpg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Zen+Dots&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
@@ -2883,7 +2892,15 @@ function statHtml(d,o){
 }
 // v3.17 カード絵：通常カード231種は art/cards/<ID>.webp。アノマリー・トークン・秘宝などはアイコンのまま
 let CARD_ART=null;
-function cardArt(d){ if(!CARD_ART) CARD_ART=new Set(AN.CARDS.map(c=>c.id)); return (!d.anomaly && !d.treasure && CARD_ART.has(d.id)) ? 'art/cards/'+d.id+'.webp' : null; }
+// v3.21 アノマリーの絵：伝説は型ごとに1枚、ふつう・奇妙は名前から決まる絵（同じ名前なら誰の画面でも同じ絵）
+const ANOM_LEGEND=['jester','seer','usurp','gear','reckless','titan','sun','soul','time','queen','undead'];
+function anomArt(d){
+  if(d.legend && ANOM_LEGEND.includes(d.legendType)) return 'art/anom/'+d.legendType+'.webp';
+  let h=0; const s=String(d.name||'')+'|'+(d.id||''); for(let i=0;i<s.length;i++) h=(h*31+s.charCodeAt(i))>>>0;
+  const spell=d.type!=='creature', set= d.weird ? (spell?['ws1','ws2','ws3']:['wc1','wc2','wc3','wc4']) : (spell?['sp1','sp2','sp3','sp4']:['cr1','cr2','cr3','cr4','cr5','cr6']);
+  return 'art/anom/'+set[h%set.length]+('ab'[(h>>>8)%2])+'.webp';
+}
+function cardArt(d){ if(d.anomaly) return anomArt(d); if(!CARD_ART) CARD_ART=new Set(AN.CARDS.map(c=>c.id)); return (!d.treasure && CARD_ART.has(d.id)) ? 'art/cards/'+d.id+'.webp' : null; }
 function cardEl(d, o){
   o=o||{};
   const el=document.createElement('div');
@@ -3067,7 +3084,7 @@ function renderTitle(){
    +'<button id="btnCodex">カードリスト（図鑑）</button>'
    +'<button class="ghost" id="btnData">データの引き継ぎ（バックアップ）</button>'
    +'<button class="ghost" id="btnSnd">'+sndIcon()+' サウンド（音楽 '+(AN.BGM.isOn()?'オン':'オフ')+'・効果音 '+(AN.SFX.isMuted()?'オフ':'オン')+'）</button>'
-   +'</div><div class="sub" style="margin-top:28px;font-size:11px">v3.20 — CPU戦・'+AN.CARDS.length+'種プール</div></div></div>';
+   +'</div><div class="sub" style="margin-top:28px;font-size:11px">v3.21 — CPU戦・'+AN.CARDS.length+'種プール</div></div></div>';
   s.querySelector('#btnNew').onclick=()=>show('setup');
   s.querySelector('#btnCodex').onclick=()=>show('codex');
   s.querySelector('#btnSnd').onclick=()=>soundSheet(()=>renderTitle());

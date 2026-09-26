@@ -375,7 +375,7 @@ const KW = {
   haste:'速攻', blocker:'守護', unblockable:'不可視', breakthrough:'突破', armor:'装甲', drain:'吸収', double:'二段攻撃', deathtouch:'猛毒', noattack:'攻撃不能'
 };
 const KW_HELP = {
-  haste:'出したターンに攻撃できる', blocker:'このクリーチャーがスタンドしている間、相手はこのクリーチャー以外を攻撃できない（ハースストーンの挑発）',
+  haste:'出したターンに攻撃できる', blocker:'このクリーチャーがスタンドしている間、相手はこのクリーチャー以外を攻撃できない',
   unblockable:'守護を無視して攻撃できる', breakthrough:'クリーチャーを攻撃したとき、相手の残り体力を超えた分のダメージが相手プレイヤーのライフに通る（装甲には止められる）',
   armor:'1回だけダメージまたは破壊を無効にする', drain:'相手のライフを減らした分、自分のライフを回復する', double:'1ターンに2回攻撃できる', deathtouch:'このクリーチャーから1以上のダメージを受けたクリーチャーは破壊される（装甲で防げる）', noattack:'このクリーチャーは攻撃できない（守護にはなれる）'
 };
@@ -474,7 +474,7 @@ P('G07','大地の恵み','grow',2,'C',[ef('cast','ramp',{n:1}),ef('cast','draw'
 P('G08','格闘','grow',2,'C',[ef('cast','fight',{n:0})],{i:'fist'}),
 K('G09','苔熊','grow',4,'C',[],[ef('etb','pumpSelf',{n:2,req:{awaken:1}})],{i:'bear'}),
 K('G10','蔦の巨人','grow',5,'C',['breakthrough'],[ef('etb','tokens',{n:1,tok:'grow',req:{awaken:1}})],{i:'vine'}),
-P('G11','成長','grow',1,'C',[ef('cast','pumpTarget',{n:2})],{i:'arrowup'}),
+P('G11','大地の息吹','grow',1,'C',[ef('cast','pumpTarget',{n:2})],{i:'arrowup'}),
 P('G12','実り','grow',3,'C',[ef('cast','draw',{n:2}),ef('cast','ramp',{n:1})],{i:'wheat'}),
 K('G13','森の番人','grow',4,'C',[],[ef('ability','pumpSelf',{n:1})],{i:'shieldleaf'}),
 K('G14','大角鹿','grow',4,'C',[],[ef('atk','pumpSelf',{n:1})],{i:'antler'}),
@@ -500,7 +500,7 @@ K('G32','森羅の守り手','grow',5,'L',[],[ef('etb','pumpAll',{n:1,req:{awake
 K('R01','光の従者','ray',1,'C',['blocker'],[],{i:'candle'}),
 K('R02','見習い僧','ray',1,'C',[],[ef('etb','heal',{n:2})],{i:'hood'}),
 K('R03','盾持ち','ray',2,'C',['blocker'],[],{i:'shield'}),
-P('R04','祈り','ray',1,'C',[ef('cast','heal',{n:3}),ef('cast','draw',{n:1,req:{pray:3}})],{i:'pray'}),
+P('R04','癒しの詩','ray',1,'C',[ef('cast','heal',{n:3}),ef('cast','draw',{n:1,req:{pray:3}})],{i:'pray'}),
 P('R05','光の羽の召喚','ray',2,'C',[ef('cast','tokens',{n:2,tok:'ray'}),ef('cast','heal',{n:1})],{i:'wings'}),
 K('R06','天使の使い','ray',3,'C',[],[ef('etb','heal',{n:3})],{i:'wings'}),
 P('R07','聖なる裁き','ray',2,'C',[ef('cast','destroy',{damaged:true})],{i:'scales'}),
@@ -520,7 +520,7 @@ P('R20','聖なる盾','ray',1,'U',[ef('cast','grant',{kw:'armor'})],{i:'shield'
 P('R21','光の軍旗','ray',4,'U',[ef('cast','grantAll',{kw:'armor'})],{i:'banner'}),
 P('R22','天使の軍勢','ray',4,'U',[ef('cast','tokens',{n:2,tok:'ray'}),ef('cast','heal',{n:2})],{i:'wings'}),
 P('R23','祈りの導き','ray',2,'U',[ef('cast','discover',{})],{i:'candle'}),
-K('R24','光の審判者','ray',5,'U',[],[ef('etb','destroy',{damaged:true}),ef('etb','destroy',{req:{pray:6}})],{i:'scales'}),
+K('R24','光の審判者','ray',5,'U',[],[ef('etb','destroy',{damaged:true,anyIf:{pray:6}})],{i:'scales',st:[4,5]}), // v3.18.2: 祈り6で2体破壊→「対象の制限が外れる」に。4/6→4/5（冒険で3枚積むと勝率+13pt、レア並みに）
 K('R25','慈愛の聖女','ray',3,'U',[],[ef('turnstart','heal',{n:2})],{i:'dove'}),
 P('R26','大天使の慈悲','ray',4,'U',[ef('cast','heal',{n:6}),ef('cast','draw',{n:1})],{i:'heart'}),
 K('R27','大天使','ray',6,'R',['blocker','armor'],[ef('turnstart','heal',{n:2})],{i:'angel'}),
@@ -571,7 +571,7 @@ K('N05','巨人の子','none',4,'C',[],[],{i:'giant'}),
 K('N06','冒険者','none',3,'C',[],[ef('etb','draw',{n:1})],{i:'runner'}),
 K('N07','治療師','none',2,'C',[],[ef('etb','heal',{n:2})],{i:'heart'}),
 K('N08','斥候','none',1,'C',[],[ef('etb','scry',{n:2})],{i:'eye'}),
-P('N09','罠','none',2,'C',[ef('cast','dmg',{n:3})],{i:'spider'}),
+P('N09','狩りの網','none',2,'C',[ef('cast','dmg',{n:3})],{i:'spider'}),
 P('N10','大砲','none',4,'C',[ef('cast','dmg',{n:4}),ef('cast','damage',{n:2})],{i:'meteor'}),
 P('N11','交易','none',3,'C',[ef('cast','draw',{n:2}),ef('cast','heal',{n:2})],{i:'book'}),
 P('N12','補給','none',2,'C',[ef('cast','heal',{n:4})],{i:'potion'}),
@@ -634,13 +634,13 @@ P('V39','毒の塗布','void',1,'C',[ef('cast','grant',{kw:'deathtouch'})],{i:'p
 P('F33','焼却','flare',4,'U',[ef('cast','dmg',{n:6})],{i:'bonfire'}),
 P('R33','天罰','ray',4,'U',[ef('cast','destroy',{minPower:5})],{i:'cloudbolt'}),
 P('T33','深淵への誘い','tide',5,'U',[ef('cast','shuffleBack',{}),ef('cast','draw',{n:1})],{i:'undertow',sb:'cost'}),
-P('N25','封印','none',5,'U',[ef('cast','destroy',{})],{i:'chains'}),
+P('N25','縛鎖','none',5,'U',[ef('cast','destroy',{})],{i:'chains'}),
 K('T34','泡の壁','tide',2,'C',['blocker'],[],{i:'bubbles',st:[1,3]}),
 K('T35','珊瑚の守り手','tide',3,'C',['blocker'],[ef('etb','boostHand',{n:1})],{i:'shield',st:[1,4]}),
 K('T36','氷壁の番人','tide',4,'U',['blocker'],[ef('etb','freeze',{})],{i:'snowflake',st:[1,5]}),
 ];
 // ---- スタッツ自動算出（明示 st があれば優先）----
-// v2.3: ハースストーン寄りの配分。合計＝コスト×2＋1（R+1/L+2）、効果税は1つ1.5（条件付き・破壊時は0.5）、攻撃比率は0.5前後
+// v2.3: 一般的なDCGに寄せた配分。合計＝コスト×2＋1（R+1/L+2）、効果税は1つ1.5（条件付き・破壊時は0.5）、攻撃比率は0.5前後
 (function(){
   const KWC={haste:1,unblockable:2,breakthrough:1,blocker:1,armor:2,drain:1,double:3,deathtouch:2};
   const RATIO={flare:0.52,tide:0.52,grow:0.5,ray:0.5,void:0.52};
@@ -660,6 +660,11 @@ K('T36','氷壁の番人','tide',4,'U',['blocker'],[ef('etb','freeze',{})],{i:'s
     if(d.attr[0]==='grow' && d.cost>=5 && !d.effects.length) h+=1;
     if(d.attr[0]==='ray' && !d.kw.includes('blocker')) h+=1;
     d.power=a; d.hp=h;
+  });
+  // v3.18: 属性の勝率調整（CPU同士6000試合で 闇58%・森46% → 闇49%・森52%）。明示 st のカードにも適用
+  CARDS.forEach(d=>{ if(d.type!=='creature') return; const a=d.attr[0];
+    if(a==='void' && d.cost>=3 && d.hp>1) d.hp-=1;
+    if(a==='grow' && d.cost>=3) d.hp+=1;
   });
 })();
 // ---- 冒険モード限定：地域の主の秘宝（v3.7）。通常のカードプールには含めない ----
@@ -698,7 +703,9 @@ function effectText(x){
     if(x.req) t=reqText(x.req)+'：'+t;
     return t;
   }
-  return effectTextBase(x);
+  let t=effectTextBase(x);
+  if(x.anyIf) t=t.replace(/。$/,'')+'（'+reqText(x.anyIf)+'なら、ダメージを受けていないクリーチャーも選べる）。';
+  return t;
 }
 function effectTextBase(x){
   const n=x.n;
@@ -926,7 +933,7 @@ function anomalyName(rng, attrs, type){
   if(type==='spell') name = name.replace(/[＝・]/,'')+rng.pick(['の呪','の裁き','の嵐','の門','の刻','の眼']);
   return name;
 }
-// ---- 伝説枠のアノマリー（v2.7）：ハースストーンの名物レジェンドのような「型」から生成 ----
+// ---- 伝説枠のアノマリー（v2.7）：DCGによくある名物レジェンドのような「型」から生成 ----
 const LEGEND_TYPES = [
   { key:'jester', title:'狂乱の道化', icon:'mask', make:(rng,d)=>{ d.type='creature'; d.cost=8; d.power=5; d.hp=5; d.effects=[ef('etb','castRandom',{n:0,scale:'hands',k:1,max:10})]; } },
   { key:'seer',   title:'星詠みの賢者', icon:'star', make:(rng,d)=>{ d.type='creature'; d.cost=7; d.power=3; d.hp=7; d.effects=[ef('turnstart','scry',{n:3,discount:99})]; } },
@@ -1013,7 +1020,7 @@ const SPECIAL = {
   bless: { id:'sp_bless', name:'祝福', attr:['ray'], type:'spell', cost:1, power:0, hp:0, rarity:'C', kw:[], effects:[ef('cast','heal',{n:3})], special:true },
   curse: { id:'sp_curse', name:'呪い', attr:['void'], type:'spell', cost:1, power:0, hp:0, rarity:'C', kw:[], effects:[ef('cast','lifecost',{n:1})], special:true, flavor:'手札を圧迫する。プレイして捨てるにはライフ1' },
   bomb:  { id:'sp_bomb', name:'爆弾', attr:['flare'], type:'spell', cost:0, power:0, hp:0, rarity:'C', kw:[], effects:[], special:true, onDraw:{e:'damage',n:3}, flavor:'引いた瞬間に爆発する' },
-  hex:   { id:'sp_hex', name:'呪詛', attr:['void'], type:'spell', cost:0, power:0, hp:0, rarity:'C', kw:[], effects:[], special:true, onDraw:{e:'damage',n:2}, flavor:'引いた瞬間に蝕む' },
+  hex:   { id:'sp_hex', name:'呪いの頁', attr:['void'], type:'spell', cost:0, power:0, hp:0, rarity:'C', kw:[], effects:[], special:true, onDraw:{e:'damage',n:2}, flavor:'引いた瞬間に蝕む' },
   plan:  { id:'sp_plan', name:'作戦', attr:[], type:'spell', cost:1, power:0, hp:0, rarity:'C', kw:[], effects:[ef('cast','draw',{n:1}),ef('cast','buff',{n:1})], special:true },
 };
 // ---- 奇妙枠のアノマリー（役に立つかは度外視。各プレイヤー3枚中1枚）----
@@ -1055,7 +1062,7 @@ const LEADER_EX = {
   meteor:  { name:'星降らし', cost:3, text:'相手のクリーチャーか相手プレイヤーからランダムに選んで1ダメージ、を3回行う。', ef:ef('leader','randomDmg',{n:3}) },
   oracle:  { name:'託宣', cost:2, text:'自分の山札の上から2枚を見て、1枚を手札に加え、残りを山札の下に置く。', ef:ef('leader','scry',{n:2}) },
   fiend:   { name:'業魔召喚', cost:2, text:'自分の場に「業魔」（3/3・速攻）を1体出す。', ef:ef('leader','tokens',{n:1,tok:'fiend'}) },
-  boss_tide:{ name:'渦潮', cost:2, text:'自分はカードを1枚引き、自分の手札にある詠唱カードすべての詠唱+1。', ef:[ef('leader','draw',{n:1}),ef('leader','boostHand',{n:1})] },
+  boss_tide:{ name:'潮の導き', cost:2, text:'自分はカードを1枚引き、自分の手札にある詠唱カードすべての詠唱+1。', ef:[ef('leader','draw',{n:1}),ef('leader','boostHand',{n:1})] },
   boss_ray: { name:'裁きの光', cost:2, text:'自分のライフを4回復し、自分の場に「光の羽」（1/1・守護）を1体出す。', ef:[ef('leader','heal',{n:4}),ef('leader','tokens',{n:1,tok:'ray'})] },
   boss_void:{ name:'冥王の呪', cost:3, text:'相手のクリーチャーすべてに-1/-1（永続）。', ef:ef('leader','weakenAll',{n:1}) },
   devour:  { name:'万象喰らい', cost:4, text:'相手のクリーチャー1体を破壊し、自分のライフを3回復する。', ef:[ef('leader','destroy',{}),ef('leader','heal',{n:3})] },
@@ -1076,7 +1083,7 @@ function cardValue(d){
 // ---- ボス（v2.12）----
 const BOSSES = [
   { key:'b1', name:'炎獄の番人', attr:'flare', tier:1, life:25, leader:null, energy:0, legends:0, anomalies:1, desc:'ライフ25。リーダー能力は通常の「火花」。コモン・アンコモンだけの炎デッキ（入門）。' },
-  { key:'b2', name:'渦潮の魔導師', attr:'tide', tier:2, life:38, leader:'boss_tide', energy:0, legends:1, anomalies:2, desc:'ライフ38。リーダー能力「渦潮」（1ドロー＋詠唱）。レアまでの水デッキ＋伝説のアノマリー1枚。' },
+  { key:'b2', name:'渦潮の魔導師', attr:'tide', tier:2, life:38, leader:'boss_tide', energy:0, legends:1, anomalies:2, desc:'ライフ38。リーダー能力「潮の導き」（1ドロー＋詠唱）。レアまでの水デッキ＋伝説のアノマリー1枚。' },
   { key:'b3', name:'大森林の王', attr:'grow', tier:2, life:42, leader:'bloom', energy:0, legends:1, anomalies:2, desc:'ライフ42。リーダー能力「大成長」（+2/+2）。レアまでの森デッキ＋伝説1枚。' },
   { key:'b4', name:'天光の審判者', attr:'ray', tier:3, life:35, leader:'boss_ray', energy:1, legends:1, anomalies:3, desc:'ライフ35。最大エナジー+1で開始。リーダー能力「裁きの光」（4回復＋守護トークン）。レジェンド入りの光デッキ＋伝説1枚。' },
   { key:'b5', name:'冥府の支配者', attr:'void', tier:3, life:45, leader:'boss_void', energy:1, legends:2, anomalies:3, desc:'ライフ45。最大エナジー+1で開始。リーダー能力「冥王の呪」（相手全体-1/-1）。レジェンド入りの闇デッキ＋伝説2枚。' },
@@ -1593,7 +1600,7 @@ class Game {
       case 'weaken': case 'destroy': case 'dmg': case 'bounce': case 'freeze': case 'tap': case 'steal': case 'polymorph': case 'copyEnemy': case 'shuffleBack': case 'morph':
         return o.field.filter(c=>{
           if(x.tapped && !c.tapped) return false;
-          if(x.damaged && !(c.dmg>0)) return false;
+          if(x.damaged && !(c.dmg>0) && !(x.anyIf && this.reqOk(p, x.anyIf, null, false))) return false;
           if(x.minPower!=null && this.power(c)<x.minPower) return false;
           if(x.maxPower!=null && this.power(c)>x.maxPower) return false;
           if(x.maxCost!=null && c.c.d.cost>x.maxCost) return false;
@@ -3025,7 +3032,7 @@ function renderTitle(){
    +(loadOnline()?'<button id="btnOnlineResume">オンライン対戦を再開（部屋 '+esc(loadOnline().code)+'）</button>':'')
    +'<button id="btnCodex">カードリスト（図鑑）</button>'
    +'<button class="ghost" id="btnSnd">'+sndIcon()+' サウンド（音楽 '+(AN.BGM.isOn()?'オン':'オフ')+'・効果音 '+(AN.SFX.isMuted()?'オフ':'オン')+'）</button>'
-   +'</div><div class="sub" style="margin-top:28px;font-size:11px">v3.17.1 — CPU戦・'+AN.CARDS.length+'種プール</div></div></div>';
+   +'</div><div class="sub" style="margin-top:28px;font-size:11px">v3.18.2 — CPU戦・'+AN.CARDS.length+'種プール</div></div></div>';
   s.querySelector('#btnNew').onclick=()=>show('setup');
   s.querySelector('#btnCodex').onclick=()=>show('codex');
   s.querySelector('#btnSnd').onclick=()=>soundSheet(()=>renderTitle());
@@ -3198,7 +3205,7 @@ function renderBattle(){
     const free=p.energy;
     let chips='<div class="energyrow">'; for(let i=0;i<p.energyMax;i++) chips+='<div class="chip '+(i<free?'':'tapped')+'"></div>'; chips+='</div>';
     const LL=game.leaderDef(p);
-    return '<div class="pbar"><div class="life '+(top&&targets.includes('player')?'target':'')+'" id="life'+p.i+'">'+p.life+'</div><div class="nm">'+p.name+(LL?'<div style="font-size:10px;color:'+(p.main?AN.ATTRS[p.main].c:'#C58CFF')+';font-weight:400">'+(p.main?AN.ATTRS[p.main].n:'変異')+' ・ '+esc(LL.name)+(p.abilityUsed?'（使用済）':'')+' ・ '+mechTxt(p)+'</div>':'')+'</div>'
+    return '<div class="pbar"><div class="life '+(top&&targets.includes('player')?'target':'')+'" id="life'+p.i+'">'+p.life+'</div><div class="nm">'+esc(p.name)+(LL?'<div style="font-size:10px;color:'+(p.main?AN.ATTRS[p.main].c:'#C58CFF')+';font-weight:400">'+(p.main?AN.ATTRS[p.main].n:'変異')+' ・ '+esc(LL.name)+(p.abilityUsed?'（使用済）':'')+' ・ '+mechTxt(p)+'</div>':'')+'</div>'
       +'<div class="st"><span>手札 <b>'+p.hand.length+'</b></span><span>山札 <b>'+p.deck.length+'</b></span></div>'
       +'<div class="st"><span>墓地 <b>'+p.grave.length+'</b></span><span>エナジー <b>'+free+'/'+p.energyMax+'</b></span></div>'+chips+'</div>';
   };

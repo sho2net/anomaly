@@ -91,6 +91,8 @@ input[type=text]{background:var(--panel);border:1px solid var(--line);color:var(
 
 /* ---------- battle ---------- */
 #battle{background:radial-gradient(120% 70% at 50% 0%,#233544 0%,var(--bg) 60%)}
+#app[data-bg]:not([data-bg='']){background-position:center;background-size:cover;background-repeat:no-repeat;background-color:var(--bg)}
+#app[data-bg]:not([data-bg='']) #battle{background:transparent}
 .pbar{display:flex;align-items:center;gap:8px;padding:6px 10px;font-size:12px;color:var(--muted)}
 .pbar .life{font-family:var(--disp);font-size:22px;color:var(--text);min-width:52px;padding:4px 8px;border-radius:10px;background:var(--panel);text-align:center;cursor:pointer;border:2px solid transparent}
 .pbar .life.target{border-color:var(--anom3);box-shadow:0 0 12px var(--anom3)}
@@ -313,6 +315,16 @@ html,body{height:100%;height:100dvh}
 .bosscard .bport{flex:0 0 84px;border-radius:8px;background:var(--panel2) center 20%/cover no-repeat;min-height:108px}
 .bosscard .bbody{flex:1;min-width:0}
 .bosscard.locked .bport{filter:grayscale(1) brightness(.35)}
+
+/* v3.17 カード絵 */
+.card .cart{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 30%;pointer-events:none;-webkit-user-drag:none}
+.card .cshade{position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,rgba(10,14,20,.78) 0%,rgba(10,14,20,.35) 34%,rgba(10,14,20,0) 52%,rgba(10,14,20,0) 70%,rgba(10,14,20,.75) 100%)}
+.card.hasart .art{display:none}
+.card.hasart .name{text-shadow:0 1px 2px #000,0 0 6px #000}
+.card.hasart .type{color:#cfd8df;text-shadow:0 1px 2px #000}
+.bigcard .cart{height:62%;object-position:center 35%;-webkit-mask-image:linear-gradient(180deg,#000 70%,transparent);mask-image:linear-gradient(180deg,#000 70%,transparent)}
+.bigcard .cshade{background:linear-gradient(180deg,rgba(10,14,20,.8) 0%,rgba(10,14,20,.2) 26%,rgba(10,14,20,0) 40%)}
+.bigcard.hasart .text{background:rgba(12,18,24,.82)}
 </style>
 </head>
 <body>
@@ -2849,6 +2861,9 @@ function statHtml(d,o){
   const atk=o.power!=null?o.power:d.power, hpMax=o.hpMax!=null?o.hpMax:d.hp, hp=o.hp!=null?o.hp:hpMax;
   return '<div class="atk">'+atk+'</div><div class="power'+(hp<hpMax?' dmg':'')+'">'+hp+'</div>';
 }
+// v3.17 カード絵：通常カード231種は art/cards/<ID>.webp。アノマリー・トークン・秘宝などはアイコンのまま
+let CARD_ART=null;
+function cardArt(d){ if(!CARD_ART) CARD_ART=new Set(AN.CARDS.map(c=>c.id)); return (!d.anomaly && !d.treasure && CARD_ART.has(d.id)) ? 'art/cards/'+d.id+'.webp' : null; }
 function cardEl(d, o){
   o=o||{};
   const el=document.createElement('div');
@@ -2857,7 +2872,8 @@ function cardEl(d, o){
   if(o.back){ el.className='card back'+(o.big?' bigcard':''); el.innerHTML='<div class="q">?</div>'; return el; }
   const typeN={creature:'クリーチャー',spell:'スペル',equip:'装備',relic:'置物',trap:'罠'}[d.type];
   const attrN=d.attr.length? d.attr.map(a=>AN.ATTRS[a].n+'('+AN.ATTRS[a].k+')').join('/') : '無属性';
-  let h='<div class="art">'+AN.iconSvg(d)+'</div><div class="cost">'+(o.cost!=null?o.cost:d.cost)+'</div><div class="rar">'+(d.anomaly?'?':(d.treasure?'宝':d.rarity))+'</div><div class="name">'+esc(d.name)+'</div>';
+  const art=cardArt(d); if(art) el.classList.add('hasart');
+  let h=(art?'<img class="cart" src="'+art+'" alt="" draggable="false" onerror="this.parentNode.classList.remove(\'hasart\');this.nextSibling.remove();this.remove()"><div class="cshade"></div>':'')+'<div class="art">'+AN.iconSvg(d)+'</div><div class="cost">'+(o.cost!=null?o.cost:d.cost)+'</div><div class="rar">'+(d.anomaly?'?':(d.treasure?'宝':d.rarity))+'</div><div class="name">'+esc(d.name)+'</div>';
   if(o.big){
     h+='<div class="type">'+typeN+' / '+attrN+(d.anomaly?(d.weird?' / アノマリー（奇妙）':(d.legend?' / アノマリー（伝説）':' / アノマリー')):' / '+AN.RARITY[d.rarity].n)+'</div>';
     const lines=AN.cardText(d);
@@ -2977,7 +2993,21 @@ function render(){
   const fn={advStart:renderAdvStart, advMap:renderAdvMap, advAnte:renderAdvAnte, advReward:renderAdvReward, advShop:renderAdvShop, advInn:renderAdvInn, advEvent:renderAdvEvent, advDeck:renderAdvDeck, boss:renderBoss, title:renderTitle, setup:renderSetup, draft:renderDraft, battle:renderBattle, codex:renderCodex, result:renderResult, lobby:renderLobby, wait:renderWait}[ui.screen];
   fn();
 }
-function screenEl(id){ try{ AN.BGM.play(bgmKeyFor(id)); }catch(e){} closeSheet(); app.innerHTML=''; const s=document.createElement('div'); s.className='screen on'; s.id=id; app.appendChild(s); return s; }
+// v3.16.1 戦闘の背景：専用の絵（bg_*）→ 無ければ地域の絵 → 無ければ標準の闘技場。下の層は上の絵が無いときだけ見える
+function battleBg(){
+  const L=[]; let a=null;
+  try{
+    if(series && series.adv && typeof advRun!=='undefined' && advRun && advRun.pending){ const en=advRun.pending.en||{};
+      if(en.hardFinal){ L.push('bg_judge'); a='ray'; } else if(en.final){ L.push('bg_devourer'); a='void'; } else a=advArea()||en.attr; }
+    else if(series && series.boss){ const b=AN.BOSSES.find(x=>x.key===series.boss); if(b && !b.attr) L.push('bg_anomaly'); else a=b&&b.attr; }
+    else if(game){ a=game.players[1-ui.me].main||game.players[ui.me].main; }
+  }catch(e){}
+  if(a){ L.push('bg_'+a); L.push('region_'+a); }
+  L.push('bg_battle');
+  return 'radial-gradient(130% 90% at 50% 45%,rgba(23,34,44,.6) 0%,rgba(23,34,44,.8) 60%,rgba(23,34,44,.94) 100%),'+L.map(k=>'url('+ART(k)+')').join(',');
+}
+function screenEl(id){ try{ AN.BGM.play(bgmKeyFor(id)); }catch(e){}
+  try{ const bg=id==='battle'?battleBg():''; if(app.dataset.bg!==bg){ app.dataset.bg=bg; app.style.backgroundImage=bg; } }catch(e){} closeSheet(); app.innerHTML=''; const s=document.createElement('div'); s.className='screen on'; s.id=id; app.appendChild(s); return s; }
 function div(cls, html){ const d=document.createElement('div'); d.className=cls||''; if(html!=null) d.innerHTML=html; return d; }
 
 // ----- title -----
@@ -2995,7 +3025,7 @@ function renderTitle(){
    +(loadOnline()?'<button id="btnOnlineResume">オンライン対戦を再開（部屋 '+esc(loadOnline().code)+'）</button>':'')
    +'<button id="btnCodex">カードリスト（図鑑）</button>'
    +'<button class="ghost" id="btnSnd">'+sndIcon()+' サウンド（音楽 '+(AN.BGM.isOn()?'オン':'オフ')+'・効果音 '+(AN.SFX.isMuted()?'オフ':'オン')+'）</button>'
-   +'</div><div class="sub" style="margin-top:28px;font-size:11px">v3.16 — CPU戦・'+AN.CARDS.length+'種プール</div></div></div>';
+   +'</div><div class="sub" style="margin-top:28px;font-size:11px">v3.17 — CPU戦・'+AN.CARDS.length+'種プール</div></div></div>';
   s.querySelector('#btnNew').onclick=()=>show('setup');
   s.querySelector('#btnCodex').onclick=()=>show('codex');
   s.querySelector('#btnSnd').onclick=()=>soundSheet(()=>renderTitle());
@@ -3501,7 +3531,7 @@ const ADV_AREA={
   ray:  { treasure:'X04', name:'天空の聖都', icon:'cathedral', enemies:['聖堂の衛士','巡礼の僧','光の射手','天使の見習い'], elite:'聖騎士団長', boss:'天光の主セラフ', bossLeader:'boss_ray' },
   void: { treasure:'X05', name:'冥府の墓所', icon:'tomb', enemies:['墓守','屍術師','影の刺客','骨の兵'], elite:'死の騎士', boss:'冥王ハーデン', bossLeader:'boss_void' },
 };
-const ADV_EV_ART={altar:'ev_altar',chest:'ev_chest',spring:'ev_spring',mirror:'ev_mirror',blade:'ev_armory',bandits:'ev_bandits',merchant:'ev_merchant'}; // 禁書庫・さすらいの強者は絵なし（生成画像に不具合があったため）
+const ADV_EV_ART={altar:'ev_altar',chest:'ev_chest',spring:'ev_spring',mirror:'ev_mirror',blade:'ev_armory',bandits:'ev_bandits',merchant:'ev_merchant',library:'ev_library',champion:'ev_champion'};
 const ADV_PRICE={C:25,U:45,R:90,L:160,A:140};
 let advRun=null;
 function advSer(list){ return list.map(d=>d.anomaly? d : d.id); }

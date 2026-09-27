@@ -152,6 +152,8 @@ input[type=text]{background:var(--panel);border:1px solid var(--line);color:var(
 @media (prefers-reduced-motion:reduce){.reveal,.rv-card,.rv-kind{animation:none}}
 .card.mullx{outline:3px solid #f28f8f;outline-offset:-3px}
 .card.mullx::before{content:'戻す';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;background:rgba(160,40,40,.55);z-index:3;font-size:13px}
+.menu a.btnlink{display:block;text-align:center;padding:14px;border-radius:10px;color:var(--text);text-decoration:none;font-size:14px;background:var(--panel2)}
+.screen.hasart .menu a.btnlink{background:rgba(30,44,56,.62);backdrop-filter:blur(4px);border:1px solid rgba(255,255,255,.08)}
 .dcard{background:var(--panel);border-radius:12px;padding:12px 14px;margin-bottom:10px}
 .dh{font-weight:700;margin-bottom:6px}
 .dres{text-align:center;border-radius:12px;padding:12px;margin-bottom:10px;background:var(--panel2)}
@@ -2889,6 +2891,7 @@ const LS='anomaly_series_v2';
 let series=null, game=null, cpuTimer=null, evSeen=0;
 const ui={screen:'title', attackFrom:null, filter:'all', cfilter:'all', sheet:null, lastLog:'', me:0};
 const ART=k=>'art/'+k+'.webp'; // v3.16 一枚絵（WebP。無ければ表示されないだけ）
+const FEEDBACK_URL='https://docs.google.com/forms/d/e/1FAIpQLSfKUo5kzEdt_iXIYET5lnLlq6bxc6guSZX1QwjqpYe0vuZwZQ/viewform'; // v3.23 感想フォーム（Googleフォーム、ショウさんのアカウント）
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
 // ---------- serialization ----------
@@ -3097,8 +3100,9 @@ function renderTitle(){
    +(loadOnline()?'<button id="btnOnlineResume">オンライン対戦を再開（部屋 '+esc(loadOnline().code)+'）</button>':'')
    +'<button id="btnCodex">カードリスト（図鑑）</button>'
    +'<button class="ghost" id="btnData">データの引き継ぎ（バックアップ）</button>'
+   +'<a class="ghost btnlink" href="'+FEEDBACK_URL+'" target="_blank" rel="noopener">感想・不具合を送る</a>'
    +'<button class="ghost" id="btnSnd">'+sndIcon()+' サウンド（音楽 '+(AN.BGM.isOn()?'オン':'オフ')+'・効果音 '+(AN.SFX.isMuted()?'オフ':'オン')+'）</button>'
-   +'</div><div class="sub" style="margin-top:28px;font-size:11px">v3.22 — CPU戦・'+AN.CARDS.length+'種プール</div></div></div>';
+   +'</div><div class="sub" style="margin-top:28px;font-size:11px">v3.23 — CPU戦・'+AN.CARDS.length+'種プール</div></div></div>';
   s.querySelector('#btnNew').onclick=()=>show('setup');
   s.querySelector('#btnCodex').onclick=()=>show('codex');
   s.querySelector('#btnSnd').onclick=()=>soundSheet(()=>renderTitle());

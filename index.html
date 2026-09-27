@@ -152,6 +152,19 @@ input[type=text]{background:var(--panel);border:1px solid var(--line);color:var(
 @media (prefers-reduced-motion:reduce){.reveal,.rv-card,.rv-kind{animation:none}}
 .card.mullx{outline:3px solid #f28f8f;outline-offset:-3px}
 .card.mullx::before{content:'戻す';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;background:rgba(160,40,40,.55);z-index:3;font-size:13px}
+.dcard{background:var(--panel);border-radius:12px;padding:12px 14px;margin-bottom:10px}
+.dh{font-weight:700;margin-bottom:6px}
+.dres{text-align:center;border-radius:12px;padding:12px;margin-bottom:10px;background:var(--panel2)}
+.dres .big{font-family:var(--disp);font-size:30px}
+.dres.win .big{color:#7be0b0}.dres.lose .big{color:#f28f8f}
+.drank{display:flex;flex-direction:column;gap:4px}
+.drank .dr{display:flex;align-items:center;gap:8px;background:var(--panel);border-radius:8px;padding:8px 10px;font-size:14px}
+.drank .dr.me{outline:1px solid #C58CFF}
+.drank .rk{width:22px;font-family:var(--disp);color:var(--muted);text-align:right}
+.drank .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.drank .at{font-size:12px}
+.drank .rs{font-size:12px}.drank .rs.w{color:#7be0b0}.drank .rs.l{color:var(--muted)}
+.dnew{color:#ffd36b;font-size:10px;margin-left:4px}
 .bosscard{background:var(--panel);border-radius:12px;padding:12px;margin-bottom:10px;border-left:4px solid var(--ac)}
 .bosscard .bn{font-weight:700;margin-bottom:4px}
 .bosscard .clr{font-size:11px;color:#7be0b0;margin-left:6px}
@@ -2228,7 +2241,7 @@ if(typeof module!=='undefined') module.exports = AN;
 // ===== ANOMALY net.js ===== room/action transport. LocalNet = same browser (tabs) via localStorage+BroadcastChannel. FirebaseNet = Realtime Database.
 (function(){
 const CODE_CHARS='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-function makeCode(){ let s=''; for(let i=0;i<4;i++) s+=CODE_CHARS[Math.floor(Math.random()*CODE_CHARS.length)]; return s; }
+function makeCode(){ let s=''; for(let i=0;i<4;i++) s+=CODE_CHARS[Math.floor(Math.random()*(i?CODE_CHARS.length:CODE_CHARS.length-9))]; return s; } // 先頭は A〜Y（Z で始まるコードはデイリーチャレンジ用）
 function setPath(obj, path, value){ const ks=path.split('/'); let o=obj; for(let i=0;i<ks.length-1;i++){ if(o[ks[i]]==null||typeof o[ks[i]]!=='object') o[ks[i]]={}; o=o[ks[i]]; } o[ks[ks.length-1]]=value; }
 
 // ---------- LocalNet ----------
@@ -2242,7 +2255,7 @@ class LocalNet {
   _save(all){ localStorage.setItem(this.key, JSON.stringify(all)); if(this.bc) this.bc.postMessage('x'); this.watchers.forEach(w=>w()); }
   async createRoom(data){ const all=this._all(); let code=makeCode(); while(all[code]) code=makeCode(); all[code]=Object.assign({code, games:{}},data); this._save(all); return code; }
   async getRoom(code){ const r=this._all()[code]; return r? JSON.parse(JSON.stringify(r)) : null; }
-  async set(code, path, value){ const all=this._all(); if(!all[code]) return; setPath(all[code], path, value); this._save(all); }
+  async set(code, path, value){ const all=this._all(); if(!all[code]) all[code]={code}; setPath(all[code], path, value); this._save(all); }
   watchRoom(code, cb){ const f=()=>{ const r=this._all()[code]; if(r) cb(JSON.parse(JSON.stringify(r))); }; this.watchers.push(f); f(); return ()=>{ this.watchers=this.watchers.filter(x=>x!==f); }; }
   async pushAction(code, gameNo, a){ const all=this._all(); const r=all[code]; if(!r) return; r.games=r.games||{}; r.games[gameNo]=r.games[gameNo]||{}; r.games[gameNo].actions=r.games[gameNo].actions||[]; r.games[gameNo].actions.push(a); this._save(all); }
   watchActions(code, gameNo, cb){ let seen=0; const f=()=>{ const r=this._all()[code]; const list=(r&&r.games&&r.games[gameNo]&&r.games[gameNo].actions)||[]; while(seen<list.length){ cb(list[seen], seen); seen++; } }; this.watchers.push(f); f(); return ()=>{ this.watchers=this.watchers.filter(x=>x!==f); }; }
@@ -2881,7 +2894,7 @@ const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',
 // ---------- serialization ----------
 function serPool(pool){ return pool.map(d=>d.anomaly? d : d.id); }
 function deserPool(arr){ return arr.map(x=> typeof x==='string' ? AN.CARD_BY_ID[x] : x); }
-function save(){ if(!series) return; try{ localStorage.setItem(LS, JSON.stringify({seed:series.seed,format:series.format,level:series.level,wins:series.wins,gameNo:series.gameNo,pools:series.pools.map(serPool),decks:series.decks,nextFirst:series.nextFirst,mains:series.mains,boss:series.boss||null})); }catch(e){} }
+function save(){ if(!series || series.daily) return; try{ localStorage.setItem(LS, JSON.stringify({seed:series.seed,format:series.format,level:series.level,wins:series.wins,gameNo:series.gameNo,pools:series.pools.map(serPool),decks:series.decks,nextFirst:series.nextFirst,mains:series.mains,boss:series.boss||null})); }catch(e){} }
 function load(){ try{ const j=JSON.parse(localStorage.getItem(LS)); if(!j) return null; j.pools=j.pools.map(deserPool); return j; }catch(e){ return null; } }
 function clearSave(){ try{ localStorage.removeItem(LS); }catch(e){} }
 
@@ -2960,7 +2973,7 @@ function bgmKeyFor(id){
     if(series && series.boss) return 'boss';
     return 'battle';
   }
-  return ({title:'title',setup:'title',codex:'title',lobby:'title',wait:'title',boss:'title',advStart:'title',advEnd:'title',
+  return ({title:'title',setup:'title',codex:'title',lobby:'title',wait:'title',boss:'title',daily:'title',advStart:'title',advEnd:'title',
     draft:'map',advMap:'map',advAnte:'map',advReward:'map',advDeck:'map',advShop:'tavern',advInn:'tavern',advEvent:'tavern'})[id]||null;
 }
 function toast(s){ const t=document.createElement('div'); t.className='toast'; t.textContent=s; app.appendChild(t); setTimeout(()=>t.remove(),1200); }
@@ -3027,7 +3040,7 @@ function show(name){ ui.screen=name; render(); }
 function render(){
   closeSheet();
   app.innerHTML='';
-  const fn={advStart:renderAdvStart, advMap:renderAdvMap, advAnte:renderAdvAnte, advReward:renderAdvReward, advShop:renderAdvShop, advInn:renderAdvInn, advEvent:renderAdvEvent, advDeck:renderAdvDeck, tutEnd:renderTutEnd, boss:renderBoss, title:renderTitle, setup:renderSetup, draft:renderDraft, battle:renderBattle, codex:renderCodex, result:renderResult, lobby:renderLobby, wait:renderWait}[ui.screen];
+  const fn={advStart:renderAdvStart, advMap:renderAdvMap, advAnte:renderAdvAnte, advReward:renderAdvReward, advShop:renderAdvShop, advInn:renderAdvInn, advEvent:renderAdvEvent, advDeck:renderAdvDeck, tutEnd:renderTutEnd, daily:renderDaily, boss:renderBoss, title:renderTitle, setup:renderSetup, draft:renderDraft, battle:renderBattle, codex:renderCodex, result:renderResult, lobby:renderLobby, wait:renderWait}[ui.screen];
   fn();
 }
 // v3.16.1 戦闘の背景：専用の絵（bg_*）→ 無ければ地域の絵 → 無ければ標準の闘技場。下の層は上の絵が無いときだけ見える
@@ -3077,6 +3090,7 @@ function renderTitle(){
    +(saved?'<button class="primary" id="btnResume">続きから（第'+saved.gameNo+'ゲーム・'+saved.wins[0]+'–'+saved.wins[1]+'）</button>':'')
    +'<button class="'+(saved?'':'primary')+'" id="btnNew">新しい対戦を始める</button>'
    +'<button id="btnTut"'+(tutDone()?' class="ghost"':'')+'>チュートリアル（遊び方を覚える）'+(tutDone()?' <small style="color:#7be0b0">✓</small>':'')+'</button>'
+   +'<button id="btnDaily">デイリーチャレンジ（今日の1戦）'+(dailyDoneToday()?' <small style="color:#7be0b0">✓</small>':' <small class="dnew">未挑戦</small>')+'</button>'
    +'<button id="btnAdv">冒険モード（1人用）</button>'
    +'<button id="btnBoss">ボスに挑戦</button>'
    +'<button id="btnOnline">オンライン対戦（部屋コード）</button>'
@@ -3084,7 +3098,7 @@ function renderTitle(){
    +'<button id="btnCodex">カードリスト（図鑑）</button>'
    +'<button class="ghost" id="btnData">データの引き継ぎ（バックアップ）</button>'
    +'<button class="ghost" id="btnSnd">'+sndIcon()+' サウンド（音楽 '+(AN.BGM.isOn()?'オン':'オフ')+'・効果音 '+(AN.SFX.isMuted()?'オフ':'オン')+'）</button>'
-   +'</div><div class="sub" style="margin-top:28px;font-size:11px">v3.21 — CPU戦・'+AN.CARDS.length+'種プール</div></div></div>';
+   +'</div><div class="sub" style="margin-top:28px;font-size:11px">v3.22 — CPU戦・'+AN.CARDS.length+'種プール</div></div></div>';
   s.querySelector('#btnNew').onclick=()=>show('setup');
   s.querySelector('#btnCodex').onclick=()=>show('codex');
   s.querySelector('#btnSnd').onclick=()=>soundSheet(()=>renderTitle());
@@ -3092,6 +3106,7 @@ function renderTitle(){
   s.querySelector('#btnOnline').onclick=()=>show('lobby');
   s.querySelector('#btnBoss').onclick=()=>show('boss');
   s.querySelector('#btnAdv').onclick=()=>show('advStart');
+  s.querySelector('#btnDaily').onclick=()=>show('daily');
   s.querySelector('#btnTut').onclick=()=>tutStart();
   const ro=s.querySelector('#btnOnlineResume'); if(ro) ro.onclick=()=>onlineResume();
   if(saved) s.querySelector('#btnResume').onclick=()=>{ series=saved; if(series.decks[0]&&series.decks[0].length===AN.CONST.DECK_SIZE) startGame(); else show('draft'); };
@@ -3189,7 +3204,7 @@ function renderDraft(){
   s.querySelectorAll('.filters button').forEach(b=>b.onclick=()=>{ ui.filter=b.dataset.f; renderDraft(); });
   s.querySelector('#help').onclick=showGlossary;
   s.querySelectorAll('.mainpick button').forEach(b=>b.onclick=()=>{ series.mains[MY]=b.dataset.a; const ok=d=>d.anomaly||d.attr.length===0||d.attr.includes(b.dataset.a); series.decks[MY]=series.decks[MY].filter(i=>ok(pool[i])); save(); renderDraft(); });
-  s.querySelector('#back').onclick=()=>{ if(series.online){ onlineLeave(); series=null; } show('title'); };
+  s.querySelector('#back').onclick=()=>{ if(series.daily){ series=null; show('daily'); return; } if(series.online){ onlineLeave(); series=null; } show('title'); };
   s.querySelector('#auto').onclick=()=>{ if(!series.mains[MY]) series.mains[MY]=AN.AI.bestMain(pool); series.decks[MY]=indicesFor(pool, AN.AI.autoDeck(pool, AN.makeRng(series.seed+series.gameNo+MY), series.mains[MY])); save(); renderDraft(); };
   s.querySelector('#go').onclick=()=>{ if(deck.length===DS&&deckOk&&main){ if(series.online) onlineReady(); else startGame(); } };
 }
@@ -3200,8 +3215,9 @@ function startGame(){
   // fresh anomaly reveal state per series is kept on the def object; fine.
   const first = series.nextFirst==null ? null : series.nextFirst;
   const boss=series.boss? AN.BOSSES.find(b=>b.key===series.boss) : null;
-  game=new AN.Game({seed:series.seed+':g'+series.gameNo, decks, names:['あなた', boss?boss.name:'CPU'], first, mains:series.mains||[null,null], choosers:[null, AN.AI.chooser(series.level)],
-    lifes: boss?[0,boss.life]:null, bossRules: boss&&boss.special==='anomaly'?[null,{chaos:true}]:null, leaders: boss?[null,boss.leader]:null, energyBonus: boss?[0,boss.energy]:null});
+  game=new AN.Game(Object.assign({seed:series.seed+':g'+series.gameNo, decks, names:['あなた', boss?boss.name:(series.daily?'今日の相手':'CPU')], first, mains:series.mains||[null,null], choosers:[null, AN.AI.chooser(series.level)],
+    lifes: boss?[0,boss.life]:null, bossRules: boss&&boss.special==='anomaly'?[null,{chaos:true}]:null, leaders: boss?[null,boss.leader]:null, energyBonus: boss?[0,boss.energy]:null}, series.daily?dailyGameOpts(series.daily):{}));
+  if(series.daily) dailyMarkStart();
   game.uiPause=true;
   ui.attackFrom=null; evSeen=0; ui.mullSel=new Set();
   game.mulligan(game.players[1], AN.AI.mullPick(game,1));
@@ -3431,6 +3447,7 @@ function finishGame(){
   revealQ.length=0; document.querySelectorAll('.reveal').forEach(e=>e.remove()); revealing=false;
   if(series && series.tut){ tutFinish(game.winner); return; }
   if(series && series.adv){ advFinish(game.winner); return; }
+  if(series && series.daily){ dailyFinish(game.winner); return; }
   const w=game.winner; series.lastWinner=w; series.lastTurns=game.turn; series.nextFirst=1-w; // 敗者が先攻
   if(series.online){ series.gameNo=series.playingNo; ui.screen='result'; onlineGameOver(w); }
   else { series.wins[w]++; save(); }
@@ -3504,7 +3521,7 @@ async function onlineCreate(){
   enterRoom(code, 0, lobby.name);
 }
 async function onlineJoin(code){
-  if(!/^[A-Z0-9]{4}$/.test(code)) throw new Error('コードは4文字です');
+  if(!/^[A-Z0-9]{4}$/.test(code) || code[0]==='Z') throw new Error(code[0]==='Z'?'その部屋は見つかりません':'コードは4文字です');
   const r=await getNet().getRoom(code); if(!r) throw new Error('その部屋は見つかりません');
   if(r.players && r.players[1] && r.players[1].name!==lobby.name) throw new Error('その部屋は満員です');
   await getNet().set(code,'players/1',{name:lobby.name});
@@ -4072,6 +4089,150 @@ function renderTutEnd(){
   s.querySelector('#adv').onclick=()=>{ series=null; game=null; show('advStart'); };
   s.querySelector('#home').onclick=()=>{ series=null; game=null; show('title'); };
 }
+
+// ================= デイリーチャレンジ（v3.22）=================
+// 日付（日本時間）から、全員に同じ90枚・同じ相手・同じ「今日のルール」を配る1本勝負。
+// 最初に最後まで戦った1回が今日の記録。以降は練習（記録されない）。
+// ランキングは Firebase の rooms/<Z+3文字> に保存（既存ルール「rooms/<4文字>のみ読み書き可」の範囲内。通常の部屋コードは Z で始まらない）
+const LSD='anomaly_daily_v1', LSN='anomaly_name_v1', LSP='anomaly_pid_v1';
+const DAY_MS=86400000, JST=9*3600000;
+function dayNum(t){ return Math.floor(((t||Date.now())+JST)/DAY_MS); }
+function dayStr(n){ const d=new Date(n*DAY_MS); return d.getUTCFullYear()+'-'+String(d.getUTCMonth()+1).padStart(2,'0')+'-'+String(d.getUTCDate()).padStart(2,'0'); }
+function dayLabel(n){ const d=new Date(n*DAY_MS); return (d.getUTCMonth()+1)+'月'+d.getUTCDate()+'日（'+'日月火水木金土'[d.getUTCDay()]+'）'; }
+function dailyCode(n){ const C='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let s=''; let x=n; for(let i=0;i<3;i++){ s=C[x%32]+s; x=Math.floor(x/32); } return 'Z'+s; }
+function dLoad(){ try{ return JSON.parse(localStorage.getItem(LSD))||{}; }catch(e){ return {}; } }
+function dSave(o){ try{ localStorage.setItem(LSD, JSON.stringify(o)); }catch(e){} }
+function myName(){ try{ return localStorage.getItem(LSN)||''; }catch(e){ return ''; } }
+function setMyName(n){ try{ localStorage.setItem(LSN,n); }catch(e){} }
+function myPid(){ let p=null; try{ p=localStorage.getItem(LSP); }catch(e){} if(!p){ p='p'+Math.floor(Math.random()*36**8).toString(36); try{ localStorage.setItem(LSP,p); }catch(e){} } return p; }
+// 今日のルール（日付で決まる）
+const DAILY_RULES=[
+  {k:'none',  n:'通常ルール',   t:'特別なルールはありません。純粋にデッキ構築の腕試し。'},
+  {k:'wind',  n:'追い風',       t:'{A}属性のクリーチャーは、攻撃力+1（あなたも相手も）。'},
+  {k:'rush',  n:'早駆け',       t:'両者とも、最大エナジー1の状態から始まる（1ターン目からエナジー2）。'},
+  {k:'short', n:'短期決戦',     t:'両者ともライフ15で始まる。'},
+  {k:'chaos', n:'混沌',         t:'両者とも、自分のターンの始めにリーダー能力が別のものに変わり、手札の1枚が新しいアノマリーに変わる。'},
+];
+function dailySetup(n){
+  const seed='daily:'+dayStr(n);
+  const rng=AN.makeRng('pool:'+seed);
+  const pools=[0,1].map(i=>{ const p=AN.drawPool(rng,87,null); const an=[0,1,2].map(k=>AN.makeAnomaly(rng,i*3+k,null)); return an.concat(p); });
+  const rr=AN.makeRng('rule:'+seed);
+  const rule=DAILY_RULES[rr.int(DAILY_RULES.length)];
+  const attrs=AN.ATTR_ORDER.filter(a=>pools[0].some(d=>!d.anomaly&&d.attr.includes(a)));
+  const attr=attrs[rr.int(attrs.length)];
+  const oppMain=AN.AI.bestMain(pools[1]);
+  const oppDeck=AN.AI.autoDeck(pools[1], AN.makeRng('opp:'+seed), oppMain);
+  return {n, seed, pools, rule, attr, oppMain, oppDeck};
+}
+function ruleText(D){ return D.rule.t.replace('{A}','<span style="color:'+AN.ATTRS[D.attr].c+'">'+AN.ATTRS[D.attr].n+'</span>'); }
+function dailyGameOpts(dl){
+  const r=dl.rule;
+  if(r==='wind') return {fieldBuff:{attr:dl.attr,n:1}};
+  if(r==='rush') return {energyBonus:[1,1]};
+  if(r==='short') return {lifes:[15,15]};
+  if(r==='chaos') return {bossRules:[{chaos:true},{chaos:true}]};
+  return {};
+}
+function dailyStreak(){
+  const h=dLoad(); let n=dayNum(); if(!h[n]) n--; let k=0; while(h[n] && h[n].rec){ k++; n--; } return k;
+}
+function dailyStart(quick, practice){
+  ui.dailyLast=null;
+  const D=dailySetup(dayNum());
+  series={ daily:{n:D.n, rule:D.rule.k, attr:D.attr, practice:!!practice}, seed:D.seed, format:1, level:3, wins:[0,0], gameNo:1, pools:D.pools, decks:[[],[]], nextFirst:null, mains:[null, D.oppMain], boss:null };
+  series.decks[1]=indicesFor(D.pools[1], D.oppDeck);
+  ui.me=0; ui.filter='all';
+  if(quick){ const m=AN.AI.bestMain(D.pools[0]); series.mains[0]=m; series.decks[0]=indicesFor(D.pools[0], AN.AI.autoDeck(D.pools[0], AN.makeRng('quick:'+D.seed), m)); startGame(); return; }
+  show('draft');
+}
+// 戦い終わり：最初の1回だけ記録（開始時に「挑戦中」を記録しておくので、途中でやめても1回と数える）
+function dailyMarkStart(){
+  const dl=series&&series.daily; if(!dl || dl.practice) return;
+  const h=dLoad(); if(h[dl.n] && h[dl.n].rec) { dl.practice=true; return; }
+  h[dl.n]=Object.assign(h[dl.n]||{}, {started:Date.now()}); dSave(h);
+}
+function dailyFinish(w){
+  const dl=series.daily; const me=game.players[0], op=game.players[1];
+  const oppStart=dl.rule==='short'?15:AN.CONST.LIFE;
+  const rec={w:w===0?1:0, t:Math.ceil(game.turn/2), l:Math.max(0,me.life), d:Math.max(0,oppStart-Math.max(0,op.life)), m:series.mains[0]||''};
+  ui.dailyLast={rec, practice:dl.practice};
+  if(!dl.practice){
+    const h=dLoad(); if(!(h[dl.n]&&h[dl.n].rec)){ h[dl.n]=Object.assign(h[dl.n]||{}, {rec, sent:false}); dSave(h); dailySubmit(dl.n); }
+  }
+  series=null; game=null; show('daily');
+}
+async function dailySubmit(n){
+  const h=dLoad(); const e=h[n]; if(!e||!e.rec||e.sent) return;
+  const name=myName(); if(!name) return; // 名前が決まってから送る
+  try{
+    const net=getNet(); const code=dailyCode(n); const pid=myPid();
+    const r=await net.getRoom(code);
+    if(!r || !r.created) await net.set(code,'created',Date.now());
+    if(r && r.scores && r.scores[pid]){ e.sent=true; dSave(h); return; } // 送信済み（別の端末など）
+    await net.set(code,'scores/'+pid, Object.assign({n:name, at:Date.now()}, e.rec));
+    const h2=dLoad(); if(h2[n]){ h2[n].sent=true; dSave(h2); }
+    if(ui.screen==='daily') renderDaily();
+  }catch(err){ console.warn('daily submit failed', err); }
+}
+function rankSort(a,b){
+  if(a.w!==b.w) return b.w-a.w;
+  if(a.w) return a.t-b.t || b.l-a.l || a.at-b.at;
+  return b.d-a.d || b.t-a.t || a.at-b.at;
+}
+function recText(r){ return r.w ? (r.t+'ターンで勝利・残りライフ'+r.l) : ('敗北・'+r.d+'ダメージ'); }
+let dailyBoard={n:null, list:null, err:null, loading:false};
+async function loadBoard(n){
+  dailyBoard={n, list:dailyBoard.n===n?dailyBoard.list:null, err:null, loading:true};
+  try{
+    const net=getNet(); const r=await net.getRoom(dailyCode(n));
+    const sc=(r&&r.scores)||{};
+    dailyBoard.list=Object.keys(sc).map(k=>Object.assign({pid:k},sc[k])).filter(x=>x&&typeof x.n==='string').sort(rankSort);
+    dailyBoard.local=net.kind!=='firebase';
+  }catch(e){ dailyBoard.err='ランキングを読み込めませんでした'; }
+  dailyBoard.loading=false;
+  if(ui.screen==='daily') renderDaily(true);
+}
+function renderDaily(fromLoad){
+  const s=screenEl('daily'); const n=dayNum(); const D=dailySetup(n); const h=dLoad(); const e=h[n]||{}; const rec=e.rec;
+  const L=ui.dailyLast; // 画面を離れるときに消す
+  if(!fromLoad && (dailyBoard.n!==n || !dailyBoard.loading)) loadBoard(n);
+  if(rec && !e.sent && myName()) dailySubmit(n);
+  const oa=AN.ATTRS[D.oppMain];
+  const attrs=AN.ATTR_ORDER.filter(a=>D.pools[0].some(d=>!d.anomaly&&d.attr.includes(a)));
+  let html='<div class="topbar"><button class="ghost" id="back">←</button><div class="t">デイリーチャレンジ <span class="sub">'+dayLabel(n)+'</span></div></div><div class="scroll wrap">';
+  if(L){ html+='<div class="dres '+(L.rec.w?'win':'lose')+'"><div class="big">'+(L.rec.w?'WIN':'LOSE')+'</div><div>'+recText(L.rec)+'</div>'+(L.practice?'<div class="sub">練習なので記録されません</div>':'<div class="sub">今日の記録になりました</div>')+'</div>'; }
+  html+='<div class="dcard"><div class="dh">今日のルール「'+esc(D.rule.n)+'」</div><div class="sub" style="line-height:1.7">'+ruleText(D)+'</div>'
+    +'<div class="sub" style="margin-top:8px;line-height:1.7">相手：CPU（強）・<span style="color:'+oa.c+'">'+oa.n+'（'+oa.k+'）</span>デッキ<br>あなたの90枚：'+attrs.map(a=>'<span style="color:'+AN.ATTRS[a].c+'">'+AN.ATTRS[a].n+'</span>').join('・')+'＋無属性＋アノマリー3枚<br>全員が同じ90枚・同じ相手と戦う1本勝負。<b>最初の1回</b>が今日の記録です。</div></div>';
+  if(rec){
+    html+='<div class="dcard"><div class="dh">あなたの今日の記録</div><div style="font-size:18px;margin:4px 0;color:'+(rec.w?'#7be0b0':'#f28f8f')+'">'+recText(rec)+'</div>'
+      +'<div class="sub">連続参加 '+dailyStreak()+'日'+(e.sent?'':(myName()?'・送信中…':''))+'</div>'
+      +(myName()?'':'<div class="field-label">ランキングに載せる名前</div><div class="row"><input type="text" id="dname" maxlength="12" placeholder="例: ショウ"><button class="primary" id="dsend" style="flex:0 0 auto;white-space:nowrap">登録</button></div>')
+      +'</div><div class="menu"><button id="dprac">同じ条件で練習する（記録されません）</button></div>';
+  } else if(e.started){
+    html+='<div class="dcard"><div class="sub" style="line-height:1.7">今日の挑戦は途中で終わっています（記録は「未完了」）。練習はできます。</div></div><div class="menu"><button id="dprac">同じ条件で練習する（記録されません）</button></div>';
+  } else {
+    html+='<div class="menu"><button class="primary" id="dgo">90枚を受け取ってデッキを組む</button><button id="dquick">おまかせデッキで挑戦</button></div>'
+      +'<div class="sub" style="margin-top:6px;font-size:12px;line-height:1.6">対戦が始まった時点で今日の1回としてカウントされます（途中でやめると記録なし）。</div>';
+  }
+  // ランキング
+  html+='<div class="dh" style="margin-top:22px">今日のランキング</div>';
+  const B=dailyBoard;
+  if(B.err) html+='<div class="sub">'+esc(B.err)+'</div>';
+  else if(!B.list) html+='<div class="sub">読み込み中…</div>';
+  else if(!B.list.length) html+='<div class="sub">まだ誰も記録していません。一番乗りのチャンス！</div>';
+  else { const pid=myPid(); html+='<div class="drank">'+B.list.slice(0,50).map((r,i)=>'<div class="dr'+(r.pid===pid?' me':'')+'"><span class="rk">'+(i+1)+'</span><span class="nm">'+esc(r.n)+'</span>'+(r.m&&AN.ATTRS[r.m]?'<span class="at" style="color:'+AN.ATTRS[r.m].c+'">'+AN.ATTRS[r.m].n+'</span>':'')+'<span class="rs '+(r.w?'w':'l')+'">'+(r.w?r.t+'T勝・残'+r.l:'負・'+r.d+'ダメ')+'</span></div>').join('')+'</div>'; }
+  if(B.local) html+='<div class="sub" style="font-size:11px;margin-top:6px">（オンライン未設定のため、この端末の記録だけが表示されます）</div>';
+  html+='<div class="sub" style="font-size:11px;margin-top:10px;line-height:1.6">順位：勝ち→少ないターン→多い残りライフ。負けは与えたダメージ順。日本時間の0時に新しいチャレンジに切り替わります。</div></div>';
+  s.innerHTML=html;
+  s.querySelector('#back').onclick=()=>{ ui.dailyLast=null; show('title'); };
+  const q=id=>s.querySelector('#'+id);
+  if(q('dgo')) q('dgo').onclick=()=>dailyStart(false,false);
+  if(q('dquick')) q('dquick').onclick=()=>dailyStart(true,false);
+  if(q('dprac')) q('dprac').onclick=()=>dailyStart(false,true);
+  if(q('dsend')) q('dsend').onclick=()=>{ const v=q('dname').value.trim().slice(0,12); if(!v){ toast('名前を入れてください'); return; } setMyName(v); dailySubmit(n); renderDaily(); };
+}
+function dailyDoneToday(){ const e=dLoad()[dayNum()]; return !!(e && (e.rec||e.started)); }
 
 window.__act=(a)=>doAct(a);
 window.__g=()=>game; window.__rb=()=>renderBattle();

@@ -2289,6 +2289,10 @@ window.AN_NET={createNet, LocalNet, FirebaseNet, makeCode};
 const LS='anomaly_sound_v1';
 let muted=false; try{ muted=localStorage.getItem(LS)==='off'; }catch(e){}
 let ac=null, master=null, revIn=null, WHITE=null, BROWN=null;
+// v3.25 iPhoneで他のアプリ（YouTubeなど）の音を邪魔しないよう、音を「環境音」扱いにする（Safari 16.4以降。未対応なら何もしない）
+try{ if(navigator.audioSession) navigator.audioSession.type='ambient'; }catch(e){}
+// 効果音も音楽もオフなら、音の出口（AudioContext）そのものを作らない・閉じる
+function audioWanted(){ try{ return !muted || music.on; }catch(e){ return !muted; } }
 const lastAt={}, curves={};
 const R=(a,b)=>a+Math.random()*(b-a);
 
@@ -2320,7 +2324,7 @@ function ctx(){
   try{ setup(new Ctor()); }catch(e){ ac=null; }
   return ac;
 }
-function unlock(){ const c=ctx(); if(c && c.state!=='running' && c.resume) c.resume().then(()=>{ if(window.AN&&AN.BGM) AN.BGM._kick(); preStart(); }).catch(()=>{}); } // iPhone の 'interrupted' も戻す
+function unlock(){ if(!audioWanted()) return; const c=ctx(); if(c && c.state!=='running' && c.resume) c.resume().then(()=>{ if(window.AN&&AN.BGM) AN.BGM._kick(); preStart(); }).catch(()=>{}); } // iPhone の 'interrupted' も戻す
 ['pointerdown','keydown','touchstart'].forEach(t=>window.addEventListener(t, unlock, {capture:true, passive:true}));
 
 function env(p,t,o){ const a=o.a||0.004, h=o.h||0, v=o.v||0.2; p.setValueAtTime(0.0001,t); p.exponentialRampToValueAtTime(v,t+a); if(h) p.setValueAtTime(v,t+a+h); p.exponentialRampToValueAtTime(0.0001,t+a+h+o.d); return t+a+h+o.d; }
@@ -2564,7 +2568,7 @@ async function renderOffline(name, arg, sec){
   for(let i=0;i<d.length;i+=win){ let s2=0; for(let j=i;j<Math.min(d.length,i+win);j++){ s2+=d[j]*d[j]; peak=Math.max(peak,Math.abs(d[j])); } rms.push(+Math.sqrt(s2/win).toFixed(4)); }
   return {err, peak:+peak.toFixed(3), rms};
 }
-AN.SFX={ renderOffline, play, preStart, preReady:()=>Object.keys(pre).length, _peaks:()=>Object.entries(pre).map(([k,l])=>k+'='+l.map(b=>{let m=0;const d=b.getChannelData(0);for(let i=0;i<d.length;i++)m=Math.max(m,Math.abs(d[i]));return m.toFixed(2)+'/'+b.duration.toFixed(1)+'s';}).join(',')).join(' '), preBytes:()=>Object.values(pre).flat().reduce((s,b)=>s+b.length*8,0), preTotal:()=>preList().length, later, names:Object.keys(S), state:()=>ac?ac.state:'none', isMuted:()=>muted, setMuted(v){ muted=!!v; try{ localStorage.setItem(LS, muted?'off':'on'); }catch(e){} if(!muted){ unlock(); setTimeout(()=>play('click'),30); } } };
+AN.SFX={ renderOffline, play, preStart, preReady:()=>Object.keys(pre).length, _peaks:()=>Object.entries(pre).map(([k,l])=>k+'='+l.map(b=>{let m=0;const d=b.getChannelData(0);for(let i=0;i<d.length;i++)m=Math.max(m,Math.abs(d[i]));return m.toFixed(2)+'/'+b.duration.toFixed(1)+'s';}).join(',')).join(' '), preBytes:()=>Object.values(pre).flat().reduce((s,b)=>s+b.length*8,0), preTotal:()=>preList().length, later, names:Object.keys(S), state:()=>ac?ac.state:'none', isMuted:()=>muted, setMuted(v){ muted=!!v; try{ localStorage.setItem(LS, muted?'off':'on'); }catch(e){} if(!muted){ unlock(); setTimeout(()=>play('click'),30); } else audioRelease(); } };
 document.addEventListener('click', e=>{ const b=e.target.closest && e.target.closest('button'); if(b && !b.disabled) play('click'); }, true);
 
 // ---------------- BGM（v3.15〜：Sunoで作った曲をループ再生）----------------
@@ -2578,7 +2582,7 @@ const MLS='anomaly_music_v1';
 let music={on:true, vol:0.5}; try{ Object.assign(music, JSON.parse(localStorage.getItem(MLS))||{}); }catch(e){}
 let mbus=null, want=null, curKey=null, curNode=null, switchAt=0; const mbuf={}, mload={}, gpos={};
 function mSave(){ try{ localStorage.setItem(MLS, JSON.stringify(music)); }catch(e){} }
-function mBus(){ if(!ctx()) return null; if(!mbus){ mbus=ac.createGain(); mbus.gain.value=music.on?music.vol:0; mbus.connect(ac.destination); } return mbus; }
+function mBus(){ if(!audioWanted() || !ctx()) return null; if(!mbus){ mbus=ac.createGain(); mbus.gain.value=music.on?music.vol:0; mbus.connect(ac.destination); } return mbus; }
 function groupTracks(g){ return Object.keys(BGM_TRACKS).filter(k=>(BGM_TRACKS[k].group||k)===g).sort(); }
 function mLoad(key){
   if(mbuf[key]) return Promise.resolve(mbuf[key]); if(mload[key]) return mload[key];
@@ -2611,12 +2615,20 @@ const BGM={
   },
   stop(){ want=null; if(ac) mFadeOut(); },
   isOn:()=>music.on, vol:()=>music.vol,
-  setOn(v){ music.on=!!v; mSave(); if(!mBus()) return; mbus.gain.setTargetAtTime(music.on?music.vol:0, ac.currentTime, 0.1); if(music.on && want && !(curNode&&curNode.group===want)){ unlock(); setTimeout(()=>mStart(want),60); } },
+  setOn(v){ music.on=!!v; mSave(); if(!music.on && !audioWanted()){ audioRelease(); return; } if(!mBus()) return; mbus.gain.setTargetAtTime(music.on?music.vol:0, ac.currentTime, 0.1); if(music.on && want && !(curNode&&curNode.group===want)){ unlock(); setTimeout(()=>mStart(want),60); } },
   setVol(v){ music.vol=Math.max(0,Math.min(1,+v)); mSave(); if(mBus()&&music.on) mbus.gain.setTargetAtTime(music.vol, ac.currentTime, 0.05); },
   current:()=>curNode?curNode.group:null, track:()=>curKey, tracks:Object.keys(BGM_TRACKS), groups:()=>[...new Set(Object.values(BGM_TRACKS).map(t=>t.group))],
   _kick(){ if(music.on && want && !(curNode&&curNode.group===want) && ac && ac.state==='running') mStart(want); },
 };
 AN.BGM=BGM;
+// 両方オフになったら AudioContext を閉じて、iPhone の音声セッションを手放す（次にオンにしたとき作り直す）
+function audioRelease(){
+  if(audioWanted() || !ac) return;
+  try{ if(curNode){ curNode.src.stop(); } }catch(e){}
+  curNode=null; curKey=null; switchAt=0;
+  const old=ac; ac=null; master=null; revIn=null; mbus=null; pbus=null;
+  try{ old.close(); }catch(e){}
+}
 // 最初の操作で音が出せるようになったら、待っていた曲を流す
 ['pointerdown','keydown','touchstart'].forEach(t=>window.addEventListener(t, ()=>{ setTimeout(()=>{ if(music.on && want && !(curNode&&curNode.group===want) && ac && ac.state==='running') mStart(want); },80); }, {passive:true}));
 // 画面を離れている間は音を止める（スマホで裏に回したとき）
@@ -2891,6 +2903,7 @@ const LS='anomaly_series_v2';
 let series=null, game=null, cpuTimer=null, evSeen=0;
 const ui={screen:'title', attackFrom:null, filter:'all', cfilter:'all', sheet:null, lastLog:'', me:0};
 const ART=k=>'art/'+k+'.webp'; // v3.16 一枚絵（WebP。無ければ表示されないだけ）
+const OFFLINE=!!window.ANOMALY_OFFLINE; // v3.24 通信なし版（ふりーむ用）：オンライン対戦・デイリー・感想リンクを出さない
 const FEEDBACK_URL='https://docs.google.com/forms/d/e/1FAIpQLSfKUo5kzEdt_iXIYET5lnLlq6bxc6guSZX1QwjqpYe0vuZwZQ/viewform'; // v3.23 感想フォーム（Googleフォーム、ショウさんのアカウント）
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
@@ -3093,24 +3106,24 @@ function renderTitle(){
    +(saved?'<button class="primary" id="btnResume">続きから（第'+saved.gameNo+'ゲーム・'+saved.wins[0]+'–'+saved.wins[1]+'）</button>':'')
    +'<button class="'+(saved?'':'primary')+'" id="btnNew">新しい対戦を始める</button>'
    +'<button id="btnTut"'+(tutDone()?' class="ghost"':'')+'>チュートリアル（遊び方を覚える）'+(tutDone()?' <small style="color:#7be0b0">✓</small>':'')+'</button>'
-   +'<button id="btnDaily">デイリーチャレンジ（今日の1戦）'+(dailyDoneToday()?' <small style="color:#7be0b0">✓</small>':' <small class="dnew">未挑戦</small>')+'</button>'
+   +(OFFLINE?'':'<button id="btnDaily">デイリーチャレンジ（今日の1戦）'+(dailyDoneToday()?' <small style="color:#7be0b0">✓</small>':' <small class="dnew">未挑戦</small>')+'</button>')
    +'<button id="btnAdv">冒険モード（1人用）</button>'
    +'<button id="btnBoss">ボスに挑戦</button>'
-   +'<button id="btnOnline">オンライン対戦（部屋コード）</button>'
-   +(loadOnline()?'<button id="btnOnlineResume">オンライン対戦を再開（部屋 '+esc(loadOnline().code)+'）</button>':'')
+   +(OFFLINE?'':'<button id="btnOnline">オンライン対戦（部屋コード）</button>')
+   +(!OFFLINE&&loadOnline()?'<button id="btnOnlineResume">オンライン対戦を再開（部屋 '+esc(loadOnline().code)+'）</button>':'')
    +'<button id="btnCodex">カードリスト（図鑑）</button>'
    +'<button class="ghost" id="btnData">データの引き継ぎ（バックアップ）</button>'
-   +'<a class="ghost btnlink" href="'+FEEDBACK_URL+'" target="_blank" rel="noopener">感想・不具合を送る</a>'
+   +(OFFLINE?'':'<a class="ghost btnlink" href="'+FEEDBACK_URL+'" target="_blank" rel="noopener">感想・不具合を送る</a>')
    +'<button class="ghost" id="btnSnd">'+sndIcon()+' サウンド（音楽 '+(AN.BGM.isOn()?'オン':'オフ')+'・効果音 '+(AN.SFX.isMuted()?'オフ':'オン')+'）</button>'
-   +'</div><div class="sub" style="margin-top:28px;font-size:11px">v3.23 — CPU戦・'+AN.CARDS.length+'種プール</div></div></div>';
+   +'</div><div class="sub" style="margin-top:28px;font-size:11px">v3.25'+(OFFLINE?' オフライン版':'')+' — CPU戦・'+AN.CARDS.length+'種プール</div></div></div>';
   s.querySelector('#btnNew').onclick=()=>show('setup');
   s.querySelector('#btnCodex').onclick=()=>show('codex');
   s.querySelector('#btnSnd').onclick=()=>soundSheet(()=>renderTitle());
   s.querySelector('#btnData').onclick=()=>dataSheet();
-  s.querySelector('#btnOnline').onclick=()=>show('lobby');
+  if(!OFFLINE) s.querySelector('#btnOnline').onclick=()=>show('lobby');
   s.querySelector('#btnBoss').onclick=()=>show('boss');
   s.querySelector('#btnAdv').onclick=()=>show('advStart');
-  s.querySelector('#btnDaily').onclick=()=>show('daily');
+  if(!OFFLINE) s.querySelector('#btnDaily').onclick=()=>show('daily');
   s.querySelector('#btnTut').onclick=()=>tutStart();
   const ro=s.querySelector('#btnOnlineResume'); if(ro) ro.onclick=()=>onlineResume();
   if(saved) s.querySelector('#btnResume').onclick=()=>{ series=saved; if(series.decks[0]&&series.decks[0].length===AN.CONST.DECK_SIZE) startGame(); else show('draft'); };

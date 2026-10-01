@@ -3540,6 +3540,7 @@ async function onlineCreate(){
 async function onlineJoin(code){
   if(!/^[A-Z0-9]{4}$/.test(code) || code[0]==='Z') throw new Error(code[0]==='Z'?'その部屋は見つかりません':'コードは4文字です');
   const r=await getNet().getRoom(code); if(!r) throw new Error('その部屋は見つかりません');
+  if(r.format===100) throw new Error('その部屋は THREE FATES の部屋です');
   if(r.players && r.players[1] && r.players[1].name!==lobby.name) throw new Error('その部屋は満員です');
   await getNet().set(code,'players/1',{name:lobby.name});
   enterRoom(code, 1, lobby.name);

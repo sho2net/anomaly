@@ -13,6 +13,13 @@
 <meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:image" content="https://sho2net.github.io/anomaly/art/ogp.jpg">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="theme-color" content="#17222C">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ANOMALY">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Zen+Dots&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
@@ -465,7 +472,7 @@ K('F28','燃え尽きる英雄','flare',2,'R',['haste'],[ef('endturn','selfDestr
 K('F29','炎帝の親衛','flare',5,'R',['haste'],[ef('play','pumpSelf',{n:1})],{i:'knight'}),
 P('F30','流星雨','flare',5,'R',[ef('cast','randomDmg',{n:8})],{i:'meteor'}),
 K('F31','炎帝イグニス','flare',7,'L',['haste'],[ef('etb','dmgAll',{n:1,scale:'combo',k:1,max:4}),ef('etb','damage',{n:5,req:{combo:3}})],{i:'crown'}),
-K('F32','紅蓮の申し子','flare',1,'L',['haste'],[ef('play','pumpSelf',{n:1}),ef('play','damage',{n:1})],{i:'flame',st:[1,1]}),
+K('F32','紅蓮の申し子','flare',1,'L',['haste'],[ef('play','pumpSelf',{n:1}),ef('play','damage',{n:1,maxTurn:3})],{i:'flame',st:[1,1]}),
 // ---------- 水：詠唱（テンポ／スペルコントロール）----------
 K('T01','水の精','tide',1,'C',[],[],{i:'drop'}),
 K('T02','泡の見習い','tide',1,'C',[],[ef('spell','pumpSelf',{n:1})],{i:'bubbles'}),
@@ -881,8 +888,9 @@ function cardText(d){
   if(d.onDraw) lines.push('山札から引いたとき：自分のライフを'+d.onDraw.n+'失う。このカードは消え、代わりにカードを1枚引く。');
   if(d.type==='relic') lines.push('置物：場に置く（各自3つまで）。置物自身は攻撃せず、攻撃の対象にもならない（あなたやクリーチャーは通常どおり攻撃される）。'+(d.countdown?'カウントダウン'+d.countdown+'（自分のターン開始時に1減り、0で消える）。':''));
   if(d.type==='trap') lines.push('罠：伏せて置く（各自2つまで）。相手には中身が見えない。条件を満たすと一度だけ発動して墓地へ。');
-  if(d.sb==='cost') lines.push('詠唱：手札にある間、自分がスペルを唱えるたびコスト-1。');
+  if(d.sb==='cost') lines.push('詠唱：手札にある間、自分がスペルを唱えるたびコスト-1（詠唱では1未満にならない）。');
   if(d.sb==='grow'||d.sb==='flag') lines.push('詠唱：手札にある間、自分がスペルを唱えるたび詠唱+1。');
+  { const mt=(d.effects||[]).find(x=>x.maxTurn&&x.e==='damage'); if(mt) d._mtNote='（相手のライフを減らすのは1ターンに'+mt.maxTurn+'回まで）'; }
   if(d.costFn==='allies') lines.push('自分の場のクリーチャー1体につきコスト-1。');
   if(d.costFn==='oppHand') lines.push('コストは相手の手札の枚数に等しい。');
   if(d.dyn==='hand') lines.push('攻撃力と体力は自分の手札の枚数に等しい。');
@@ -896,6 +904,7 @@ function cardText(d){
   const seen={}; const order=[];
   d.effects.forEach(x=>{ if(!seen[x.t]){seen[x.t]=[];order.push(x.t);} seen[x.t].push(effectText(Object.assign({_cr:d.type==='creature', _relic:d.type==='relic'},x.per?{attrRef:d.attr[0]}:{},x)).replace(/^相手のクリーチャー1体(に|を)/, d.type==='trap'?'そのクリーチャー$1':'相手のクリーチャー1体$1')); });
   order.forEach(t=>lines.push((d.type==='relic'?TRIG[t].replace('自分の他のクリーチャー','自分のクリーチャー').replace('このカード以外の',''):TRIG[t])+seen[t].join('')));
+  if(d._mtNote) lines.push(d._mtNote);
   return lines;
 }
 
@@ -1459,7 +1468,7 @@ class Game {
   }
 
   // ---- cost ----
-  costOf(p, d, card){ let c=Math.max(0,d.cost-((card&&card.cm)||0)-(d.sb==='cost'&&card?(card.boost||0):0)); if(d.type==='spell') this.opp(p).relics.forEach(r=>r.c.d.effects.forEach(x=>{ if(x.t==='static'&&x.e==='spellTax') c++; })); if(d.costFn==='allies') c=Math.max(0,c-p.field.length); if(d.costFn==='oppHand') c=this.opp(p).hand.length; if(d.type==='spell'){ this.opp(p).field.forEach(o=>this.effs(o).forEach(x=>{ if(x.t==='static'&&x.e==='spellTax') c++; })); } return c; }
+  costOf(p, d, card){ const base=Math.max(0,d.cost-((card&&card.cm)||0)); let c=base; if(d.sb==='cost'&&card&&card.boost) c=Math.max(Math.min(base,1), base-card.boost); /* v3.27 詠唱では1未満にならない */ if(d.type==='spell') this.opp(p).relics.forEach(r=>r.c.d.effects.forEach(x=>{ if(x.t==='static'&&x.e==='spellTax') c++; })); if(d.costFn==='allies') c=Math.max(0,c-p.field.length); if(d.costFn==='oppHand') c=this.opp(p).hand.length; if(d.type==='spell'){ this.opp(p).field.forEach(o=>this.effs(o).forEach(x=>{ if(x.t==='static'&&x.e==='spellTax') c++; })); } return c; }
   canAfford(p, d, card){ return this.costOf(p,d,card)<=p.energy; }
   canPlay(p, card){
     if(this.winner!=null||this.pending||this.players[this.active]!==p) return false;
@@ -1669,6 +1678,7 @@ class Game {
   applyEffectCore(t){
     const p=this.players[t.p], o=this.opp(p), x=t.eff; let n=x.n;
     if(x.req && !this.reqOk(p, x.req, t, true)) return;
+    if(x.maxTurn && t.src){ const s=t.src; if(s._mtT!==this.turn){ s._mtT=this.turn; s._mtN=0; } if(s._mtN>=x.maxTurn) return; s._mtN++; } // v3.27 1ターンの回数上限
     if(x.bonus && this.reqOk(p, x.bonus.req, t, true)) n=(n||0)+x.bonus.n;
     if(x.scale){ n=(x.n||0)+this.scaleCount(p,x,t)*(x.k||1); if(x.max) n=Math.min(n,x.max); if(x.scale!=='boost' && !x.n && n<=0) return; }
     if(x.per==='attr'){ const a=t.src.d.attr[0]; n = x.n * p.field.filter(c=>c.c.d.attr.includes(a)).length; if(n<=0) return; }
@@ -2260,6 +2270,8 @@ class LocalNet {
   async set(code, path, value){ const all=this._all(); if(!all[code]) all[code]={code}; setPath(all[code], path, value); this._save(all); }
   watchRoom(code, cb){ const f=()=>{ const r=this._all()[code]; if(r) cb(JSON.parse(JSON.stringify(r))); }; this.watchers.push(f); f(); return ()=>{ this.watchers=this.watchers.filter(x=>x!==f); }; }
   async pushAction(code, gameNo, a){ const all=this._all(); const r=all[code]; if(!r) return; r.games=r.games||{}; r.games[gameNo]=r.games[gameNo]||{}; r.games[gameNo].actions=r.games[gameNo].actions||[]; r.games[gameNo].actions.push(a); this._save(all); }
+  pushGhost(rec){ const k='anom_ghosts_v1'; let a=[]; try{ a=JSON.parse(localStorage.getItem(k))||[]; }catch(e){} a.push(rec); a=a.slice(-60); localStorage.setItem(k, JSON.stringify(a)); return Promise.resolve(); }
+  async listGhosts(n){ try{ return (JSON.parse(localStorage.getItem('anom_ghosts_v1'))||[]).slice(-n); }catch(e){ return []; } }
   watchActions(code, gameNo, cb){ let seen=0; const f=()=>{ const r=this._all()[code]; const list=(r&&r.games&&r.games[gameNo]&&r.games[gameNo].actions)||[]; while(seen<list.length){ cb(list[seen], seen); seen++; } }; this.watchers.push(f); f(); return ()=>{ this.watchers=this.watchers.filter(x=>x!==f); }; }
 }
 
@@ -2272,6 +2284,8 @@ class FirebaseNet {
   async set(code, path, value){ await this.ref(code+'/'+path).set(value); }
   watchRoom(code, cb){ const r=this.ref(code); const h=r.on('value',s=>{ if(s.exists()) cb(s.val()); }); return ()=>r.off('value',h); }
   async pushAction(code, gameNo, a){ await this.ref(code+'/games/'+gameNo+'/actions').push(a); }
+  async pushGhost(rec){ await this.db.ref('ghosts').push(rec); }
+  async listGhosts(n){ const s=await this.db.ref('ghosts').limitToLast(n).get(); return s.exists()? Object.values(s.val()) : []; }
   watchActions(code, gameNo, cb){ const r=this.ref(code+'/games/'+gameNo+'/actions'); let i=0; const h=r.on('child_added',s=>{ cb(s.val(), i++); }); return ()=>r.off('child_added',h); }
 }
 
@@ -2910,7 +2924,7 @@ const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',
 // ---------- serialization ----------
 function serPool(pool){ return pool.map(d=>d.anomaly? d : d.id); }
 function deserPool(arr){ return arr.map(x=> typeof x==='string' ? AN.CARD_BY_ID[x] : x); }
-function save(){ if(!series || series.daily) return; try{ localStorage.setItem(LS, JSON.stringify({seed:series.seed,format:series.format,level:series.level,wins:series.wins,gameNo:series.gameNo,pools:series.pools.map(serPool),decks:series.decks,nextFirst:series.nextFirst,mains:series.mains,boss:series.boss||null})); }catch(e){} }
+function save(){ if(!series || series.daily || series.gauntlet) return; try{ localStorage.setItem(LS, JSON.stringify({seed:series.seed,format:series.format,level:series.level,wins:series.wins,gameNo:series.gameNo,pools:series.pools.map(serPool),decks:series.decks,nextFirst:series.nextFirst,mains:series.mains,boss:series.boss||null})); }catch(e){} }
 function load(){ try{ const j=JSON.parse(localStorage.getItem(LS)); if(!j) return null; j.pools=j.pools.map(deserPool); return j; }catch(e){ return null; } }
 function clearSave(){ try{ localStorage.removeItem(LS); }catch(e){} }
 
@@ -2997,7 +3011,7 @@ function toast(s){ const t=document.createElement('div'); t.className='toast'; t
 // ---------- 用語集 ----------
 const GLOSS_MECH = {
   combo:['連撃N','このターンに自分がこのカード以外のカードをN枚以上プレイしていれば発動する（リーダー能力の使用も1枚に数える）。炎の看板メカニクス。'],
-  boost:['詠唱','手札にある間、自分がスペルを唱えるたびに詠唱+1され、強化やコスト減が進む（潮読みもスペル扱い）。水の看板メカニクス。'],
+  boost:['詠唱','手札にある間、自分がスペルを唱えるたびに詠唱+1され、強化やコスト減が進む（潮読みもスペル扱い）。詠唱によるコスト減では1未満にならない。水の看板メカニクス。'],
   awaken:['繁茂','自分の最大エナジーが7以上なら発動する。森の看板メカニクス。'],
   pray:['祈りN','このゲームで自分のライフが回復した回数がN以上なら発動する。光の看板メカニクス。'],
   souls:['供物N','自分のカードが墓地に送られた数（破壊・スペル使用・捨て札）。Nを消費して発動する。闇の看板メカニクス。'],
@@ -3056,7 +3070,7 @@ function show(name){ ui.screen=name; render(); }
 function render(){
   closeSheet();
   app.innerHTML='';
-  const fn={advStart:renderAdvStart, advMap:renderAdvMap, advAnte:renderAdvAnte, advReward:renderAdvReward, advShop:renderAdvShop, advInn:renderAdvInn, advEvent:renderAdvEvent, advDeck:renderAdvDeck, tutEnd:renderTutEnd, daily:renderDaily, boss:renderBoss, title:renderTitle, setup:renderSetup, draft:renderDraft, battle:renderBattle, codex:renderCodex, result:renderResult, lobby:renderLobby, wait:renderWait}[ui.screen];
+  const fn={advStart:renderAdvStart, advMap:renderAdvMap, advAnte:renderAdvAnte, advReward:renderAdvReward, advShop:renderAdvShop, advInn:renderAdvInn, advEvent:renderAdvEvent, advDeck:renderAdvDeck, tutEnd:renderTutEnd, daily:renderDaily, gStart:renderGStart, gFoe:renderGFoe, gReward:renderGReward, gEnd:renderGEnd, boss:renderBoss, title:renderTitle, setup:renderSetup, draft:renderDraft, battle:renderBattle, codex:renderCodex, result:renderResult, lobby:renderLobby, wait:renderWait}[ui.screen];
   fn();
 }
 // v3.16.1 戦闘の背景：専用の絵（bg_*）→ 無ければ地域の絵 → 無ければ標準の闘技場。下の層は上の絵が無いときだけ見える
@@ -3097,6 +3111,20 @@ function dataSheet(){
   sh.querySelector('#dinput').onchange=e=>{ const f=e.target.files[0]; if(!f) return; f.text().then(t=>askConfirm('今のデータを上書きして読み込みますか？','読み込む',()=>tryImport(t))); };
   sh.querySelector('#dclose').onclick=()=>closeSheet();
 }
+// v3.26 ホーム画面に追加（PWA）。Android の Chrome などは専用の「インストール」画面、iPhone は手順を案内
+let installEvt=null;
+window.addEventListener('beforeinstallprompt',e=>{ e.preventDefault(); installEvt=e; if(ui.screen==='title') renderTitle(); });
+window.addEventListener('appinstalled',()=>{ installEvt=null; if(ui.screen==='title') renderTitle(); });
+function isStandalone(){ try{ return (window.matchMedia&&matchMedia('(display-mode: standalone)').matches)||navigator.standalone===true; }catch(e){ return false; } }
+function installSheet(){
+  if(installEvt){ const ev=installEvt; installEvt=null; ev.prompt(); ev.userChoice.finally(()=>{ if(ui.screen==='title') renderTitle(); }); return; }
+  const ios=/iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+  const sh=sheet('<h3>ホーム画面に追加</h3><div class="sub" style="line-height:1.8">'
+    +(ios?'<b>iPhone・iPad（Safari）</b><br>1. 画面下の共有ボタン（四角から矢印が出ているマーク）を押す<br>2. 「ホーム画面に追加」を選ぶ<br>3. 右上の「追加」を押す<br><br>Safari 以外のブラウザでは追加できないことがあります。'
+         :'<b>Android（Chrome）</b><br>1. 右上の︙（メニュー）を押す<br>2. 「アプリをインストール」または「ホーム画面に追加」を選ぶ<br><br><b>iPhone</b><br>Safari の共有ボタン →「ホーム画面に追加」')
+    +'<br><br>追加すると、アイコンから全画面で起動できます。一度読み込んだ絵や曲は端末に保存されるので、次からの起動が速くなります。</div><div class="btns"><button class="ghost" id="isclose">閉じる</button></div>', true);
+  sh.querySelector('#isclose').onclick=closeSheet;
+}
 function renderTitle(){
   const s=screenEl('title'); s.classList.add('hasart'); s.style.setProperty('--art','url('+ART('title')+')');
   const saved=load();
@@ -3108,20 +3136,22 @@ function renderTitle(){
    +'<button id="btnTut"'+(tutDone()?' class="ghost"':'')+'>チュートリアル（遊び方を覚える）'+(tutDone()?' <small style="color:#7be0b0">✓</small>':'')+'</button>'
    +(OFFLINE?'':'<button id="btnDaily">デイリーチャレンジ（今日の1戦）'+(dailyDoneToday()?' <small style="color:#7be0b0">✓</small>':' <small class="dnew">未挑戦</small>')+'</button>')
    +'<button id="btnAdv">冒険モード（1人用）</button>'
-   +'<button id="btnBoss">ボスに挑戦</button>'
+   +'<button id="btnGnt">連戦モード（ランダムな相手と何連勝できるか）</button>'
    +(OFFLINE?'':'<button id="btnOnline">オンライン対戦（部屋コード）</button>')
    +(!OFFLINE&&loadOnline()?'<button id="btnOnlineResume">オンライン対戦を再開（部屋 '+esc(loadOnline().code)+'）</button>':'')
    +'<button id="btnCodex">カードリスト（図鑑）</button>'
+   +(!OFFLINE&&!isStandalone()?'<button class="ghost" id="btnInstall">ホーム画面に追加（アプリとして使う）</button>':'')
    +'<button class="ghost" id="btnData">データの引き継ぎ（バックアップ）</button>'
    +(OFFLINE?'':'<a class="ghost btnlink" href="'+FEEDBACK_URL+'" target="_blank" rel="noopener">感想・不具合を送る</a>')
    +'<button class="ghost" id="btnSnd">'+sndIcon()+' サウンド（音楽 '+(AN.BGM.isOn()?'オン':'オフ')+'・効果音 '+(AN.SFX.isMuted()?'オフ':'オン')+'）</button>'
-   +'</div><div class="sub" style="margin-top:28px;font-size:11px">v3.25'+(OFFLINE?' オフライン版':'')+' — CPU戦・'+AN.CARDS.length+'種プール</div></div></div>';
+   +'</div><div class="sub" style="margin-top:28px;font-size:11px">v3.28'+(OFFLINE?' オフライン版':'')+' — CPU戦・'+AN.CARDS.length+'種プール</div></div></div>';
   s.querySelector('#btnNew').onclick=()=>show('setup');
   s.querySelector('#btnCodex').onclick=()=>show('codex');
   s.querySelector('#btnSnd').onclick=()=>soundSheet(()=>renderTitle());
   s.querySelector('#btnData').onclick=()=>dataSheet();
+  const bi=s.querySelector('#btnInstall'); if(bi) bi.onclick=installSheet;
   if(!OFFLINE) s.querySelector('#btnOnline').onclick=()=>show('lobby');
-  s.querySelector('#btnBoss').onclick=()=>show('boss');
+  s.querySelector('#btnGnt').onclick=()=>show('gStart');
   s.querySelector('#btnAdv').onclick=()=>show('advStart');
   if(!OFFLINE) s.querySelector('#btnDaily').onclick=()=>show('daily');
   s.querySelector('#btnTut').onclick=()=>tutStart();
@@ -3221,9 +3251,9 @@ function renderDraft(){
   s.querySelectorAll('.filters button').forEach(b=>b.onclick=()=>{ ui.filter=b.dataset.f; renderDraft(); });
   s.querySelector('#help').onclick=showGlossary;
   s.querySelectorAll('.mainpick button').forEach(b=>b.onclick=()=>{ series.mains[MY]=b.dataset.a; const ok=d=>d.anomaly||d.attr.length===0||d.attr.includes(b.dataset.a); series.decks[MY]=series.decks[MY].filter(i=>ok(pool[i])); save(); renderDraft(); });
-  s.querySelector('#back').onclick=()=>{ if(series.daily){ series=null; show('daily'); return; } if(series.online){ onlineLeave(); series=null; } show('title'); };
+  s.querySelector('#back').onclick=()=>{ if(series.gauntlet){ series=null; show('gStart'); return; } if(series.daily){ series=null; show('daily'); return; } if(series.online){ onlineLeave(); series=null; } show('title'); };
   s.querySelector('#auto').onclick=()=>{ if(!series.mains[MY]) series.mains[MY]=AN.AI.bestMain(pool); series.decks[MY]=indicesFor(pool, AN.AI.autoDeck(pool, AN.makeRng(series.seed+series.gameNo+MY), series.mains[MY])); save(); renderDraft(); };
-  s.querySelector('#go').onclick=()=>{ if(deck.length===DS&&deckOk&&main){ if(series.online) onlineReady(); else startGame(); } };
+  s.querySelector('#go').onclick=()=>{ if(deck.length===DS&&deckOk&&main){ if(series.gauntlet) gBegin(); else if(series.online) onlineReady(); else startGame(); } };
 }
 
 // ----- battle -----
@@ -3464,6 +3494,7 @@ function finishGame(){
   revealQ.length=0; document.querySelectorAll('.reveal').forEach(e=>e.remove()); revealing=false;
   if(series && series.tut){ tutFinish(game.winner); return; }
   if(series && series.adv){ advFinish(game.winner); return; }
+  if(series && series.gauntlet){ gFinish(game.winner); return; }
   if(series && series.daily){ dailyFinish(game.winner); return; }
   const w=game.winner; series.lastWinner=w; series.lastTurns=game.turn; series.nextFirst=1-w; // 敗者が先攻
   if(series.online){ series.gameNo=series.playingNo; ui.screen='result'; onlineGameOver(w); }
@@ -3654,15 +3685,23 @@ function advAutoDeck(){
   const two=Object.keys(score).sort((a,b)=>score[b]-score[a]).slice(0,2);
   const ok=d=>d.anomaly||d.attr.length===0||d.attr.every(a=>two.includes(a));
   const idx=col.map((d,i)=>i).filter(i=>ok(col[i])).sort((a,b)=>{ const va=AN.cardValue(col[a])/Math.max(1,col[a].cost)*(col[a].cost<=4?1.15:1)+(col[a].anomaly?2:0)+(col[a].treasure?4:0), vb=AN.cardValue(col[b])/Math.max(1,col[b].cost)*(col[b].cost<=4?1.15:1)+(col[b].anomaly?2:0)+(col[b].treasure?4:0); return vb-va; });
-  advRun.deck=idx.slice(0,30);
-  if(advRun.deck.length<30){ col.forEach((d,i)=>{ if(advRun.deck.length<30 && !advRun.deck.includes(i)) advRun.deck.push(i); }); }
+  const cnt={}; const take=i=>{ const d=col[i]; if(d.anomaly) return true; cnt[d.id]=cnt[d.id]||0; if(cnt[d.id]>=advCap(d)) return false; cnt[d.id]++; return true; };
+  advRun.deck=[]; idx.forEach(i=>{ if(advRun.deck.length<30 && take(i)) advRun.deck.push(i); });
+  if(advRun.deck.length<30){ col.forEach((d,i)=>{ if(advRun.deck.length<30 && !advRun.deck.includes(i) && take(i)) advRun.deck.push(i); }); }
+  if(advRun.deck.length<30){ col.forEach((d,i)=>{ if(advRun.deck.length<30 && !advRun.deck.includes(i)) advRun.deck.push(i); }); } // 救済（所持が足りないとき）
 }
 function advEnsureDeck(){
   // コレクションが30枚未満なら、無属性コモンで補充（救済）
   while(advRun.col.length<30){ const cs=AN.CARDS.filter(d=>d.attr.length===0&&d.rarity==='C'); advRun.col.push(cs[Math.floor(Math.random()*cs.length)]); }
-  if(advRun.deck.length!==30 || advAttrs(advDeckDefs()).length>2) advAutoDeck();
+  if(advRun.deck.length!==30 || advAttrs(advDeckDefs()).length>2 || advDeckOver()) advAutoDeck();
 }
 function advPool(attr, rars){ return AN.CARDS.filter(d=>(attr? d.attr.includes(attr) : d.attr.length===0) && rars.includes(d.rarity)); }
+// v3.27 同名カードの上限（デッキに入れられる枚数）：レジェンド1・レア2・それ以外3。アノマリーは対象外
+function advCap(d){ if(d.anomaly) return 99; if(d.treasure) return 1; return d.rarity==='L'?1:(d.rarity==='R'?2:3); }
+function advOwned(id){ return advRun.col.filter(d=>!d.anomaly&&d.id===id).length; }
+// 報酬・店・出来事の候補：上限まで持っているカードは出さない（全部消えるときは元の候補）
+function advPoolNew(attr, rars){ const p=advPool(attr,rars); const q=p.filter(d=>advOwned(d.id)<advCap(d)); return q.length?q:p; }
+function advDeckOver(){ const c={}; let over=false; advRun.deck.forEach(i=>{ const d=advRun.col[i]; if(!d||d.anomaly) return; c[d.id]=(c[d.id]||0)+1; if(c[d.id]>advCap(d)) over=true; }); return over; }
 // v3.13 ハード：記録（ノーマルの制覇回数・ハードで制覇した最高の周回）
 const ADV_REC='anomaly_adv_record_v1';
 function advRecord(){ try{ return Object.assign({normal:0,hard:0}, JSON.parse(localStorage.getItem(ADV_REC))||{}); }catch(e){ return {normal:0,hard:0}; } }
@@ -3832,7 +3871,7 @@ function advMyColors(){ const st=new Set(advAttrs(advDeckDefs())); st.add(advRun
 function advRewardPicks(rk, rng){
   const cols=advMyColors();
   const rars = rk==='battle'?['C','U'] : rk==='elite'?['U','R'] : ['R','L'];
-  let pool=[]; cols.forEach(a=>{ pool=pool.concat(advPool(a,rars)); }); pool=pool.concat(advPool(null,rars));
+  let pool=[]; cols.forEach(a=>{ pool=pool.concat(advPoolNew(a,rars)); }); pool=pool.concat(advPoolNew(null,rars));
   const out=[]; const seen=new Set();
   for(let k=0;k<40 && out.length<3;k++){ const d=rng.pick(pool); if(seen.has(d.id)) continue; seen.add(d.id); out.push(d); }
   if(rk==='boss'||rk==='champion') out[2]=AN.makeLegend(rng, 800+advRun.counter);
@@ -3900,14 +3939,16 @@ function advEnd(victory){
   const s=screenEl('advEnd'); const r=advRun; const L=r.hard||0;
   if(victory){ const rec=advRecord(); if(L) rec.hard=Math.max(rec.hard,L); else rec.normal++; advSaveRecord(rec); }
   s.innerHTML='<div class="result"><div class="big" style="color:'+(victory?'#FFD86B':'#f28f8f')+'">'+(victory?(L?'双冠を砕いた':'歪みの果てを制覇'):'冒険の終わり')+'</div><div class="sub">'+(victory?(L?'光と闇の審判は終わり、歪みの玉座は空になった。':'すべての歪みを鎮め、あなたの名は語り継がれる。'):'ハートが尽きた。')+'</div>'+(L?'<div class="sub" style="color:#FF8A7A">ハード '+L+'周目'+(victory?'を制覇。次の周回では、審判者がさらに強くなって待っている。':'')+'</div>':'')+(victory&&!L?'<div class="sub">冒険モードの開始画面で「ハード」を選べます。</div>':'')+'<div class="sub">勝利 '+r.wins+' ・ 敗北 '+r.losses+' ・ 所持カード '+r.col.length+'枚 ・ '+r.gold+'G</div><div class="menu" style="width:100%;max-width:320px"><button class="primary" id="home">タイトルへ</button></div></div>';
+  const ghostInfo = victory && !OFFLINE ? {kind:'adv', defs:advDeckDefs(), main:advMain(advDeckDefs())||r.start, battles:r.wins||0, hard:L} : null;
   advClear(); advRun=null;
   s.querySelector('#home').onclick=()=>show('title');
+  if(ghostInfo) setTimeout(()=>ghostOffer(ghostInfo), 900);
 }
 // ---------- 店 ----------
 function advMakeShop(){
   const rng=advRng('shop'); const mine=advMyColors(); const area=advArea()||rng.pick(AN.ATTR_ORDER);
   const rr=()=>{ const r=rng()*100; return r<45?'C':r<80?'U':r<95?'R':'L'; };
-  const pick=(attr)=>{ const k=rr(); const p=advPool(attr,[k]); return p.length?rng.pick(p):rng.pick(advPool(attr,['C'])); };
+  const pick=(attr)=>{ const k=rr(); const p=advPoolNew(attr,[k]); return p.length?rng.pick(p):rng.pick(advPoolNew(attr,['C'])); };
   const items=[pick(rng.pick(mine)),pick(rng.pick(mine)),pick(rng.pick(mine)),pick(rng.pick(mine)),pick(null),pick(area)];
   if(rng()<0.35) items.push(AN.makeAnomaly(rng, 900, null));
   advRun.shop=items.map(d=>({d, price:ADV_PRICE[d.anomaly?'A':d.rarity], sold:false}));
@@ -3961,14 +4002,14 @@ const ADV_EVENTS=[
     { label:'40G払う', ok:r=>r.gold>=40, run:(r)=>{ r.gold-=40; return {msg:'野盗は金を数えながら去っていった。'}; } },
     { label:'戦う', run:()=>({msg:'「身の程を教えてやる！」', fight:{kind:'battle', bonus:30}}) } ] },
   { key:'blade', icon:'sword', title:'呪われた武器庫', text:'錆びた武器の山の中に、強い力を放つカードがある。触れた者の命を削るという。', choices:[
-    { label:'手に取る（ハート-1）', ok:r=>r.hearts>1, run:(r,rng)=>{ r.hearts--; const cols=advMyColors(); let pool=[]; cols.forEach(a=>{ pool=pool.concat(advPool(a,['R','L'])); }); const d=rng.pick(pool); r.col.push(d); return {msg:'ハートを1つ失ったが、「'+d.name+'」を手に入れた。', card:d}; } },
+    { label:'手に取る（ハート-1）', ok:r=>r.hearts>1, run:(r,rng)=>{ r.hearts--; const cols=advMyColors(); let pool=[]; cols.forEach(a=>{ pool=pool.concat(advPoolNew(a,['R','L'])); }); const d=rng.pick(pool); r.col.push(d); return {msg:'ハートを1つ失ったが、「'+d.name+'」を手に入れた。', card:d}; } },
     { label:'立ち去る', run:()=>({msg:'あなたは武器庫を後にした。'}) } ] },
 ];
 function advPickEvent(){
   const rng=advRng('event'); const e=rng.pick(ADV_EVENTS); const ev={key:e.key};
   const cols=advMyColors();
-  if(e.offer){ let p=[]; cols.forEach(a=>{ p=p.concat(advPool(a,['R'])); }); const d=rng.pick(p); ev.offer={d:d.id, price:Math.floor(ADV_PRICE.R/2)}; }
-  if(e.pick3){ let p=[]; cols.forEach(a=>{ p=p.concat(advPool(a,['U','R'])); }); p=p.concat(advPool(null,['R'])); ev.pick=[rng.pick(p).id,rng.pick(p).id,rng.pick(p).id]; }
+  if(e.offer){ let p=[]; cols.forEach(a=>{ p=p.concat(advPoolNew(a,['R'])); }); const d=rng.pick(p); ev.offer={d:d.id, price:Math.floor(ADV_PRICE.R/2)}; }
+  if(e.pick3){ let p=[]; cols.forEach(a=>{ p=p.concat(advPoolNew(a,['U','R'])); }); p=p.concat(advPoolNew(null,['R'])); ev.pick=[rng.pick(p).id,rng.pick(p).id,rng.pick(p).id]; }
   return ev;
 }
 function renderAdvEvent(){
@@ -3992,22 +4033,22 @@ function renderAdvEvent(){
 // ---------- デッキ編集 ----------
 function renderAdvDeck(){
   const s=screenEl('advDeck'); const col=advRun.col; const deck=advRun.deck;
-  const inDeck=advDeckDefs(); const attrs=advAttrs(inDeck); const ok=deck.length===30 && attrs.length<=2;
+  const inDeck=advDeckDefs(); const attrs=advAttrs(inDeck); const over=advDeckOver(); const ok=deck.length===30 && attrs.length<=2 && !over;
   const groups=new Map(); col.forEach((d,i)=>{ const k=d.anomaly?d.id+i:d.id; if(!groups.has(k)) groups.set(k,{d,idx:[]}); groups.get(k).idx.push(i); });
   const arr=[...groups.values()].sort((a,b)=>(a.d.anomaly?-1:0)-(b.d.anomaly?-1:0) || (a.d.attr[0]||'z').localeCompare(b.d.attr[0]||'z') || a.d.cost-b.d.cost);
   const curve=[0,0,0,0,0,0,0,0,0]; inDeck.forEach(d=>curve[Math.min(8,d.cost)]++); const maxC=Math.max(1,...curve);
   s.innerHTML='<div class="topbar"><button class="ghost" id="back">←</button><div class="t">デッキ編集 <span class="sub">所持'+col.length+'枚</span></div><button class="ghost helpbtn" id="help">？</button><button class="ghost" id="auto">おまかせ</button></div>'
-   +'<div class="sub" style="padding:6px 12px">30枚ちょうど。属性は2つまで（無属性・アノマリーは自由）。多い方の属性のリーダー能力を使います。</div>'
+   +'<div class="sub" style="padding:6px 12px">30枚ちょうど。属性は2つまで（無属性・アノマリーは自由）。同じカードはレジェンド1枚・レア2枚・それ以外3枚まで。多い方の属性のリーダー能力を使います。</div>'
    +'<div class="scroll"><div class="grid" id="grid"></div></div>'
    +'<div class="deckbar"><div class="n '+(ok?'ok':'')+'">'+deck.length+'<span class="sub" style="font-family:var(--font);font-size:11px">/30</span></div><div class="attrs">'+attrs.map(a=>'<span style="color:'+AN.ATTRS[a].c+'">'+AN.ATTRS[a].n+inDeck.filter(d=>d.attr.includes(a)).length+'</span>').join('')+(attrs.length>2?'<span style="color:#f28f8f">属性3以上</span>':'')+'</div><div class="curve">'+curve.slice(1).map((c,i)=>'<i data-c="'+(i+1)+'" style="height:'+Math.max(2,c/maxC*22)+'px"></i>').join('')+'</div><div style="flex:1"></div><button class="primary" id="done" '+(ok?'':'disabled')+'>決定</button></div>';
   const grid=s.querySelector('#grid');
   arr.forEach(g=>{ const n=g.idx.filter(i=>deck.includes(i)).length; const w=document.createElement('div'); w.className='pcard'+(n===0?' out':''); w.appendChild(cardEl(g.d,{})); w.innerHTML+='<div class="have">×'+g.idx.length+'</div>'+(n?'<div class="cnt">'+n+'</div>':'');
     w.onclick=()=>{ const n=g.idx.filter(i=>deck.includes(i)).length; cardSheet(g.d,{},[
       {label:'− 外す（'+n+'）',disabled:n===0,fn:()=>{ const i=g.idx.find(i=>deck.includes(i)); deck.splice(deck.indexOf(i),1); advSave(); renderAdvDeck(); }},
-      {label:'＋ 入れる',cls:'primary',disabled:n>=g.idx.length||deck.length>=30,fn:()=>{ const i=g.idx.find(i=>!deck.includes(i)); deck.push(i); advSave(); renderAdvDeck(); }} ]); };
+      {label: n>=advCap(g.d)&&n<g.idx.length ? '＋ 入れる（上限'+advCap(g.d)+'枚）' : '＋ 入れる',cls:'primary',disabled:n>=g.idx.length||deck.length>=30||n>=advCap(g.d),fn:()=>{ const i=g.idx.find(i=>!deck.includes(i)); deck.push(i); advSave(); renderAdvDeck(); }} ]); };
     grid.appendChild(w); });
   const leave=()=>{ advSave(); show(advRun.stage==='ante'?'advAnte':(advRun.stage==='inn'?'advInn':'advMap')); };
-  const back=()=>{ if(!ok){ askConfirm('デッキが条件（30枚・属性2つまで）を満たしていません。おまかせで組み直して戻りますか？','組み直して戻る',()=>{ advAutoDeck(); leave(); }); return; } leave(); };
+  const back=()=>{ if(!ok){ askConfirm('デッキが条件（30枚・属性2つまで・同じカードの枚数）を満たしていません。おまかせで組み直して戻りますか？','組み直して戻る',()=>{ advAutoDeck(); leave(); }); return; } leave(); };
   s.querySelector('#back').onclick=back; s.querySelector('#done').onclick=back;
   s.querySelector('#auto').onclick=()=>{ advAutoDeck(); advSave(); renderAdvDeck(); };
   s.querySelector('#help').onclick=showGlossary;
@@ -4252,10 +4293,194 @@ function renderDaily(fromLoad){
 }
 function dailyDoneToday(){ const e=dLoad()[dayNum()]; return !!(e && (e.rec||e.started)); }
 
+// ===== v3.28 連戦モード（ランダムな相手と何連勝できるか）とゴースト =====
+// 流れ：90枚から30枚を組む（通常の構築画面）→ 相手の紹介 → 対戦 → 勝てば3枚から1枚をデッキに入れ替え（しなくてもよい）→ 次の相手 … 1回負けたら終わり
+// 相手：ランダムな属性のCPU（勝つほど強くなる）。ゴースト（冒険の覇者・連戦の記録保持者のデッキ）が混ざる
+const LSG='anomaly_gauntlet_v1', LSGB='anomaly_gauntlet_best_v1';
+let grun=null, gGhosts=null;
+function gSave(){ try{ if(!grun){ localStorage.removeItem(LSG); return; } localStorage.setItem(LSG, JSON.stringify(Object.assign({}, grun, {pool:serPool(grun.pool), foe: grun.foe? Object.assign({}, grun.foe, {deck:serPool(grun.foe.deck)}) : null}))); }catch(e){} }
+function gLoad(){ try{ const j=JSON.parse(localStorage.getItem(LSG)); if(!j) return null; j.pool=deserPool(j.pool); if(j.foe) j.foe.deck=deserPool(j.foe.deck); return j; }catch(e){ return null; } }
+function gBest(){ try{ return parseInt(localStorage.getItem(LSGB)||'0')||0; }catch(e){ return 0; } }
+function gSetBest(n){ try{ if(n>gBest()) localStorage.setItem(LSGB, String(n)); }catch(e){} }
+function gCap(d){ if(d.anomaly) return 99; if(d.treasure) return 1; return d.rarity==='L'?1:(d.rarity==='R'?2:3); }
+function gRng(tag){ grun.n=(grun.n||0)+1; return AN.makeRng(grun.seed+':'+tag+':'+grun.n); }
+
+// ---------- ゴースト（Firebase の ghosts／同じブラウザ内なら localStorage）----------
+function ghostSer(defs){ return defs.map(d=>{ if(!d.anomaly) return d.id; const o=JSON.parse(JSON.stringify(d)); delete o.revealed; return o; }); }
+function ghostSanitize(o){
+  if(!o || typeof o!=='object' || !['creature','spell','relic','trap','equip'].includes(o.type)) return null;
+  const d=Object.assign({}, o); d.anomaly=true;
+  d.name=String(d.name||'？').slice(0,20); d.cost=Math.max(0,Math.min(12,parseInt(d.cost)||0));
+  d.power=Math.max(0,Math.min(30,parseInt(d.power)||0)); d.hp=Math.max(0,Math.min(30,parseInt(d.hp)||0));
+  d.attr=Array.isArray(d.attr)?d.attr.filter(a=>AN.ATTR_ORDER.includes(a)):[]; d.kw=Array.isArray(d.kw)?d.kw.filter(k=>AN.KW[k]):[];
+  d.effects=Array.isArray(d.effects)?d.effects.slice(0,8).filter(x=>x&&typeof x==='object'&&typeof x.e==='string'):[];
+  d.id='gh_'+String(d.id||'').slice(0,40); return d;
+}
+function ghostDeser(arr){
+  if(!Array.isArray(arr) || arr.length!==AN.CONST.DECK_SIZE) return null;
+  const out=arr.map(x=> typeof x==='string' ? (AN.CARD_BY_ID[x]||AN.SPECIAL[x]||null) : ghostSanitize(x));
+  return out.every(Boolean) ? out : null;
+}
+// 壊れたデータで対戦が止まらないよう、読み込んだときに一度だけCPU同士で動かしてみる
+function ghostWorks(deck, main){
+  try{ const rng=AN.makeRng('ghtest'); const opp=AN.AI.autoDeck(AN.drawPool(rng,60,'ray'), rng, 'ray');
+    const g=new AN.Game({seed:'ght', decks:[deck, opp], names:['G','T'], mains:[main,'ray'], choosers:[AN.AI.chooser(2),AN.AI.chooser(2)]});
+    let s=0; while(g.winner==null && s++<300){ AN.AI.step(g,2); if(g.pending && g.choosers[g.pendingInfo.p]==null) break; }
+    return true; }catch(e){ return false; }
+}
+async function ghostList(){
+  if(gGhosts) return gGhosts;
+  gGhosts=[];
+  try{ const raw=await getNet().listGhosts(30);
+    raw.forEach(r=>{ if(!r||typeof r.n!=='string') return; const deck=ghostDeser(r.d); const m=AN.ATTR_ORDER.includes(r.m)?r.m:null; if(!deck||!m) return; if(!ghostWorks(deck,m)) return;
+      gGhosts.push({n:r.n.slice(0,12), m, deck, k:r.k==='gnt'?'gnt':'adv', b:+r.b||0, h:+r.h||0}); });
+  }catch(e){}
+  return gGhosts;
+}
+function ghostOffer(info){
+  // info: {kind:'adv'|'gnt', defs, main, battles, hard}
+  let nm=''; try{ nm=localStorage.getItem('anomaly_name_v1')||''; }catch(e){}
+  const what = info.kind==='adv' ? '冒険を制覇したデッキ' : info.battles+'連勝したデッキ';
+  const sh=sheet('<h3>ゴーストとして残しますか？</h3><div class="sub" style="line-height:1.7;margin-bottom:8px">'+what+'を、名前と一緒に記録します。ほかのプレイヤーの連戦モードに「ゴースト」として登場し、CPUがあなたのデッキで戦います。</div>'
+    +'<div class="field-label">名前（12文字まで・公開されます）</div><input type="text" id="ghn" maxlength="12" value="'+esc(nm)+'" placeholder="例: ショウ">'
+    +'<div class="btns"><button class="ghost" id="ghno">残さない</button><button class="primary" id="ghyes">残す</button></div>', true, true);
+  sh.querySelector('#ghno').onclick=closeSheet;
+  sh.querySelector('#ghyes').onclick=async()=>{
+    const n=sh.querySelector('#ghn').value.trim().slice(0,12); if(!n){ toast('名前を入れてください'); return; }
+    try{ localStorage.setItem('anomaly_name_v1', n); }catch(e){}
+    const rec={n, d:ghostSer(info.defs), m:info.main, k:info.kind, b:Math.max(0,Math.min(999,info.battles|0)), h:Math.max(0,Math.min(99,info.hard|0)), at:Date.now()};
+    closeSheet();
+    try{ await getNet().pushGhost(rec); gGhosts=null; toast('ゴーストを残しました'); }catch(e){ toast('記録できませんでした：'+e.message); }
+  };
+}
+
+// ---------- 相手 ----------
+const G_TITLES={flare:['炎の剣士','火吹きの傭兵','紅蓮の騎士','灼熱の魔導士'],tide:['潮読みの術士','深海の書記官','氷の魔女','波間の盗賊'],grow:['森の狩人','大樹の守り手','蔓の呪術師','獣使い'],ray:['光の修道士','聖騎士','癒し手','天秤の裁定者'],void:['影の暗殺者','墓守','呪術師','骨の王']};
+function gMakeFoe(rng, w, ghosts){
+  const lifeBonus=Math.min(14, Math.floor(w/2)*2);
+  if(ghosts.length && w>=2 && rng()<0.35){
+    const gh=rng.pick(ghosts);
+    return {name:gh.n+'のゴースト', ghost:true, note: gh.k==='adv' ? (gh.h?'冒険ハード'+gh.h+'周目の覇者':'冒険の覇者') : '連戦'+gh.b+'連勝の記録', main:gh.m, deck:gh.deck.slice(), life:20+lifeBonus, energy:w>=8?1:0, buff:null, level:3};
+  }
+  const attr=rng.pick(AN.ATTR_ORDER);
+  const rars= w<2?['C','U'] : w<5?['C','U','R'] : ['C','U','R','L'];
+  let pool=[]; AN.CARDS.forEach(d=>{ if((d.attr.length===0||(d.attr.length===1&&d.attr[0]===attr)) && rars.includes(d.rarity)){ const k=d.rarity==='L'?1:2; for(let i=0;i<k;i++) pool.push(d); } });
+  const an=[AN.makeAnomaly(rng, 5000+w*7, null)]; if(w>=3) an.push(AN.makeAnomaly(rng, 5001+w*7, null)); if(w>=6) an.push(AN.makeLegend(rng, 5003+w*7));
+  const deck=an.concat(AN.AI.autoDeck(pool, rng, attr).slice(0, AN.CONST.DECK_SIZE-an.length));
+  const title=rng.pick(G_TITLES[attr]);
+  return {name:title, ghost:false, note:AN.ATTRS[attr].n+'属性', main:attr, deck, life:20+lifeBonus, energy:w>=8?1:0, buff:w>=11?{atk:0,hp:1}:null, level:w<1?2:3};
+}
+async function gNextFoe(){
+  const ghosts=await ghostList();
+  grun.foe=gMakeFoe(gRng('foe'), grun.wins, ghosts); gSave(); show('gFoe');
+}
+
+// ---------- 画面 ----------
+function renderGStart(){
+  const s=screenEl('gStart'); const saved=gLoad(); const best=gBest();
+  s.innerHTML='<div class="topbar"><button class="ghost" id="back">←</button><div class="t">連戦モード</div></div><div class="scroll wrap">'
+   +'<div class="sub" style="line-height:1.8">配られた90枚から30枚のデッキを組み、ランダムな相手と戦い続けます。<b>1回負けたら終わり。</b>何連勝できるかに挑戦します。<br>・勝つたびに3枚の候補から1枚をデッキに入れ替えられます<br>・勝ち進むほど相手が強くなります（ライフ・レアカード・アノマリー）<br>・ほかのプレイヤーが残した「ゴースト」も相手として現れます</div>'
+   +'<div class="big" style="margin:18px 0 6px;font-size:18px">最高記録：'+best+'連勝</div>'
+   +'<div class="menu">'+(saved?'<button class="primary" id="resume">続きから（'+saved.wins+'連勝中）</button>':'')
+   +'<button class="'+(saved?'':'primary')+'" id="new">新しく始める</button></div></div>';
+  s.querySelector('#back').onclick=()=>show('title');
+  s.querySelector('#new').onclick=()=>{ const go=()=>{ grun=null; gSave(); gNew(); }; if(saved) askConfirm('続きのデータを捨てて新しく始めますか？','新しく始める',go); else go(); };
+  const r=s.querySelector('#resume'); if(r) r.onclick=()=>{ grun=saved; if(grun.foe) show('gFoe'); else gNextFoe(); };
+}
+function gNew(){
+  const seed='g'+Math.floor(Math.random()*1e9).toString(36);
+  const rng=AN.makeRng('gpool:'+seed);
+  const p=AN.drawPool(rng,87,null); const an=[0,1,2].map(k=>AN.makeAnomaly(rng,k,null));
+  const pool=an.concat(p);
+  series={gauntlet:true, seed, format:1, level:3, wins:[0,0], gameNo:1, pools:[pool,pool], decks:[[],[]], mains:[null,null], nextFirst:null};
+  ui.me=0; ui.filter='all'; show('draft');
+}
+function gBegin(){ // 構築画面の「対戦へ」
+  grun={seed:series.seed, pool:series.pools[0].slice(), deck:series.decks[0].slice(), main:series.mains[0], wins:0, n:0, foe:null};
+  gNextFoe();
+}
+function gDeckDefs(){ return grun.deck.map(i=>grun.pool[i]); }
+function renderGFoe(){
+  if(!grun||!grun.foe){ show('gStart'); return; }
+  const s=screenEl('gFoe'); const F=grun.foe; const c=AN.ATTRS[F.main]?AN.ATTRS[F.main].c:'#C58CFF';
+  const mods=['ライフ'+F.life]; if(F.energy) mods.push('開始エナジー+'+F.energy); if(F.buff) mods.push('クリーチャーの体力+1');
+  s.innerHTML='<div class="scroll wrap" style="text-align:center;padding-top:8vh">'
+   +'<div class="sub">'+(grun.wins? grun.wins+'連勝中 ・ ':'')+'第'+(grun.wins+1)+'戦</div>'
+   +'<div class="advfoe" style="--ac:'+c+';margin:14px auto"><span class="ico">'+AN.iconSvg({i:F.ghost?'ghost':'knight'})+'</span><div><div class="fn">'+esc(F.name)+'</div><div class="sub">'+esc(F.note)+' ・ '+mods.join('・')+'</div></div></div>'
+   +(F.ghost?'<div class="sub" style="color:#C58CFF;margin-bottom:10px">ほかのプレイヤーが残したデッキです</div>':'')
+   +'<div class="menu"><button class="primary" id="fight">戦う</button><button class="ghost" id="deck">デッキを確認</button><button class="ghost" id="quit">あきらめる</button></div></div>';
+  s.querySelector('#fight').onclick=gFight;
+  s.querySelector('#deck').onclick=()=>gDeckSheet();
+  s.querySelector('#quit').onclick=()=>askConfirm('ここで連戦を終わりにしますか？（記録は'+grun.wins+'連勝）','終わりにする',()=>gEndRun());
+}
+function gDeckSheet(){
+  const sh=sheet('<h3>あなたのデッキ（30枚）</h3><div class="picks" id="gd" style="flex-wrap:wrap"></div><div class="btns"><button class="ghost" id="gdc">閉じる</button></div>', true);
+  const w=sh.querySelector('#gd'); gDeckDefs().slice().sort((a,b)=>a.cost-b.cost).forEach(d=>{ const el=cardEl(d,{}); el.onclick=()=>cardSheet(d,{},[{label:'デッキに戻る',fn:gDeckSheet}]); w.appendChild(el); });
+  sh.querySelector('#gdc').onclick=closeSheet;
+}
+function gFight(){
+  const F=grun.foe;
+  series={gauntlet:true, seed:grun.seed, format:1, level:F.level, wins:[0,0], gameNo:grun.wins+1, pools:[grun.pool,[]], decks:[grun.deck,[]], mains:[grun.main,F.main], nextFirst:null};
+  game=new AN.Game({seed:grun.seed+':b'+grun.wins+':'+grun.n, decks:[gDeckDefs(), F.deck], names:['あなた', F.name], mains:[grun.main, F.main], choosers:[null, AN.AI.chooser(F.level)], lifes:[0,F.life], energyBonus:[0,F.energy||0], sideBuff:[null,F.buff||null]});
+  game.uiPause=true; ui.me=0; ui.attackFrom=null; evSeen=0; ui.mullSel=new Set();
+  game.mulligan(game.players[1], AN.AI.mullPick(game,1));
+  show('battle'); scheduleCpu();
+}
+function gFinish(w){
+  if(w===0){ grun.wins++; gSetBest(grun.wins); grun.foe=null; grun.offer=gOffers(); gSave(); series=null; show('gReward'); }
+  else { gEndRun(); }
+}
+function gOffers(){
+  const rng=gRng('offer'); const w=grun.wins; const main=grun.main;
+  const rars= w<3?['C','U'] : w<6?['U','R'] : ['R','L'];
+  const pool=AN.CARDS.filter(d=>(d.attr.length===0||d.attr.includes(main)) && rars.includes(d.rarity));
+  const out=[]; const seen=new Set();
+  for(let k=0;k<50&&out.length<3;k++){ const d=rng.pick(pool); if(seen.has(d.id)) continue; seen.add(d.id); out.push(d); }
+  if(w%3===0) out[2]=(w>=6? AN.makeLegend(rng, 7000+w) : AN.makeAnomaly(rng, 7000+w, null));
+  return out;
+}
+function renderGReward(){
+  if(!grun){ show('gStart'); return; }
+  const s=screenEl('gReward');
+  s.innerHTML='<div class="result"><div class="big" style="color:#7be0b0">WIN</div><div class="score">'+grun.wins+'連勝</div>'
+   +'<div class="sub">1枚選んでデッキに入れ替えられます（入れ替えなくてもかまいません）</div><div class="picks" id="pk"></div>'
+   +'<div class="menu" style="width:100%;max-width:320px"><button id="skip">入れ替えずに次へ</button><button class="ghost" id="deck">デッキを確認</button></div></div>';
+  const pk=s.querySelector('#pk');
+  (grun.offer||[]).forEach(d=>{ const el=cardEl(d,{}); el.onclick=()=>{ const n=gDeckDefs().filter(x=>!x.anomaly&&x.id===d.id).length; const ok=n<gCap(d); const attrOk=d.anomaly||d.attr.length===0||d.attr.includes(grun.main);
+    cardSheet(d,{},[{label: !attrOk?'メイン属性以外は入れられません':(ok?'これを入れる（次に外すカードを選ぶ）':'上限（'+gCap(d)+'枚）まで入っています'),cls:'primary',disabled:!ok||!attrOk,fn:()=>gChooseOut(d)}]); }; pk.appendChild(el); });
+  s.querySelector('#skip').onclick=()=>{ grun.offer=null; gNextFoe(); };
+  s.querySelector('#deck').onclick=()=>gDeckSheet();
+}
+function gChooseOut(card){
+  const sh=sheet('<h3>「'+esc(card.name)+'」と入れ替えるカードを選んでください</h3><div class="picks" id="go2" style="flex-wrap:wrap"></div><div class="btns"><button class="ghost" id="gc">やめる</button></div>', true);
+  const w=sh.querySelector('#go2');
+  grun.deck.map((i,pos)=>({d:grun.pool[i],pos})).sort((a,b)=>a.d.cost-b.d.cost).forEach(({d,pos})=>{ const el=cardEl(d,{}); el.onclick=()=>{
+    grun.pool.push(card); grun.deck[pos]=grun.pool.length-1; grun.offer=null; closeSheet(); toast('「'+d.name+'」→「'+card.name+'」'); gNextFoe(); }; w.appendChild(el); });
+  sh.querySelector('#gc').onclick=closeSheet;
+}
+let gLast=null;
+function gEndRun(){
+  const r=grun; gSetBest(r.wins); grun=null; gSave(); series=null; game=null;
+  gLast={wins:r.wins};
+  show('gEnd');
+  if(r.wins>=5 && !OFFLINE) setTimeout(()=>ghostOffer({kind:'gnt', defs:r.deck.map(i=>r.pool[i]), main:r.main, battles:r.wins, hard:0}), 700);
+}
+function renderGEnd(){
+  if(!gLast){ show('title'); return; }
+  const s=screenEl('gEnd');
+  s.innerHTML='<div class="result"><div class="big" style="color:#f28f8f">連戦終了</div><div class="score">'+gLast.wins+'連勝</div><div class="sub">最高記録：'+gBest()+'連勝</div>'
+   +'<div class="menu" style="width:100%;max-width:320px"><button class="primary" id="again">もう一度挑戦</button><button class="ghost" id="home">タイトルへ</button></div></div>';
+  s.querySelector('#again').onclick=()=>show('gStart');
+  s.querySelector('#home').onclick=()=>show('title');
+}
+
+
 window.__act=(a)=>doAct(a);
 window.__g=()=>game; window.__rb=()=>renderBattle();
 // boot
 if(location.search.includes('auto=1')){ /* debug hook */ }
+// v3.26 サービスワーカー（GitHub Pages など https のときだけ。オフライン版では使わない）
+if(!OFFLINE && 'serviceWorker' in navigator && (location.protocol==='https:'||location.hostname==='localhost')){ window.addEventListener('load',()=>{ navigator.serviceWorker.register('sw.js').catch(()=>{}); }); }
 render();
 })();
 
